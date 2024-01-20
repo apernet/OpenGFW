@@ -8,6 +8,10 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+const (
+	dnsUDPInvalidCountThreshold = 4
+)
+
 // DNSAnalyzer is for both DNS over UDP and TCP.
 var (
 	_ analyzer.UDPAnalyzer = (*DNSAnalyzer)(nil)
@@ -44,14 +48,21 @@ func (a *DNSAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) anal
 }
 
 type dnsUDPStream struct {
-	logger analyzer.Logger
+	logger       analyzer.Logger
+	invalidCount int
 }
 
 func (s *dnsUDPStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, done bool) {
 	m := parseDNSMessage(data)
+	// To allow non-DNS UDP traffic to get offloaded,
+	// we consider a UDP stream invalid and "done" if
+	// it has more than a certain number of consecutive
+	// packets that are not valid DNS messages.
 	if m == nil {
-		return nil, false
+		s.invalidCount++
+		return nil, s.invalidCount >= dnsUDPInvalidCountThreshold
 	}
+	s.invalidCount = 0 // Reset invalid count on valid DNS message
 	return &analyzer.PropUpdate{
 		Type: analyzer.PropUpdateReplace,
 		M:    m,
