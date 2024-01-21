@@ -20,6 +20,7 @@ OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedi
 - 完整的 IP/TCP 重组，各种协议解析器
     - HTTP, TLS, DNS, SSH, 更多协议正在开发中
     - Shadowsocks 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+    - 基于 Trojan-killer 的 Trojan 检测 (https://github.com/XTLS/Trojan-killer)
     - [开发中] 基于机器学习的流量分类
 - 基于流的多核负载均衡
 - 连接 offloading
@@ -84,6 +85,10 @@ workers:
 - name: block shadowsocks
   action: block
   expr: fet != nil && fet.yes
+
+- name: block trojan
+  action: block
+  expr: trojan != nil && trojan.yes
 
 - name: v2ex dns poisoning
   action: modify

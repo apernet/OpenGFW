@@ -89,6 +89,7 @@ var analyzers = []analyzer.Analyzer{
 	&tcp.HTTPAnalyzer{},
 	&tcp.SSHAnalyzer{},
 	&tcp.TLSAnalyzer{},
+	&tcp.TrojanAnalyzer{},
 	&udp.DNSAnalyzer{},
 }
 

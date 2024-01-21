@@ -23,6 +23,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
     - HTTP, TLS, DNS, SSH, and many more to come
     - "Fully encrypted traffic" detection for Shadowsocks,
       etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+    - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
     - [WIP] Machine learning based traffic classification
 - Flow-based multicore load balancing
 - Connection offloading
@@ -89,6 +90,10 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 - name: block shadowsocks
   action: block
   expr: fet != nil && fet.yes
+
+- name: block trojan
+  action: block
+  expr: trojan != nil && trojan.yes
 
 - name: v2ex dns poisoning
   action: modify
