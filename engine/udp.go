@@ -187,8 +187,9 @@ func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
 		// Important: reverse order so we can remove entries
 		entry := s.activeEntries[i]
 		update, closeUpdate, done := s.feedEntry(entry, rev, udp.Payload)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, update)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, closeUpdate)
+		up1 := processPropUpdate(s.info.Props, entry.Name, update)
+		up2 := processPropUpdate(s.info.Props, entry.Name, closeUpdate)
+		updated = updated || up1 || up2
 		if done {
 			s.activeEntries = append(s.activeEntries[:i], s.activeEntries[i+1:]...)
 			s.doneEntries = append(s.doneEntries, entry)
@@ -244,7 +245,8 @@ func (s *udpStream) closeActiveEntries() {
 	updated := false
 	for _, entry := range s.activeEntries {
 		update := entry.Stream.Close(false)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, update)
+		up := processPropUpdate(s.info.Props, entry.Name, update)
+		updated = updated || up
 	}
 	if updated {
 		s.logger.UDPStreamPropUpdate(s.info, true)

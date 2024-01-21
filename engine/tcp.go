@@ -133,8 +133,9 @@ func (s *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		// Important: reverse order so we can remove entries
 		entry := s.activeEntries[i]
 		update, closeUpdate, done := s.feedEntry(entry, rev, start, end, skip, data)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, update)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, closeUpdate)
+		up1 := processPropUpdate(s.info.Props, entry.Name, update)
+		up2 := processPropUpdate(s.info.Props, entry.Name, closeUpdate)
+		updated = updated || up1 || up2
 		if done {
 			s.activeEntries = append(s.activeEntries[:i], s.activeEntries[i+1:]...)
 			s.doneEntries = append(s.doneEntries, entry)
@@ -174,7 +175,8 @@ func (s *tcpStream) closeActiveEntries() {
 	updated := false
 	for _, entry := range s.activeEntries {
 		update := entry.Stream.Close(false)
-		updated = updated || processPropUpdate(s.info.Props, entry.Name, update)
+		up := processPropUpdate(s.info.Props, entry.Name, update)
+		updated = updated || up
 	}
 	if updated {
 		s.logger.TCPStreamPropUpdate(s.info, true)

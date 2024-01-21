@@ -30,7 +30,7 @@ func processPropUpdate(cpm analyzer.CombinedPropMap, name string, update *analyz
 	case analyzer.PropUpdateMerge:
 		m := cpm[name]
 		if m == nil {
-			m = make(analyzer.PropMap)
+			m = make(analyzer.PropMap, len(update.M))
 			cpm[name] = m
 		}
 		for k, v := range update.M {
