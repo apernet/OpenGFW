@@ -3,7 +3,6 @@
 [![License][1]][2]
 
 [1]: https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg
-
 [2]: LICENSE
 
 OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedia.org/wiki/%E9%98%B2%E7%81%AB%E9%95%BF%E5%9F%8E)
@@ -18,10 +17,11 @@ OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedi
 ## 功能
 
 - 完整的 IP/TCP 重组，各种协议解析器
-    - HTTP, TLS, DNS, SSH, 更多协议正在开发中
-    - Shadowsocks 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
-    - 基于 Trojan-killer 的 Trojan 检测 (https://github.com/XTLS/Trojan-killer)
-    - [开发中] 基于机器学习的流量分类
+  - HTTP, TLS, DNS, SSH, 更多协议正在开发中
+  - Shadowsocks 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+  - 基于 Trojan-killer 的 Trojan 检测 (https://github.com/XTLS/Trojan-killer)
+  - [开发中] 基于机器学习的流量分类
+- 同等支持 IPv4 和 IPv6
 - 基于流的多核负载均衡
 - 连接 offloading
 - 基于 [expr](https://github.com/expr-lang/expr) 的强大规则引擎
