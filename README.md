@@ -6,6 +6,7 @@
 [2]: LICENSE
 
 **[中文文档](README.zh.md)**
+**[日本語ドキュメント](README.ja.md)**
 
 OpenGFW is a flexible, easy-to-use, open source implementation of [GFW](https://en.wikipedia.org/wiki/Great_Firewall) on
 Linux that's in many ways more powerful than the real thing. It's cyber sovereignty you can have on a home router.
