@@ -20,7 +20,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 ## Features
 
 - Full IP/TCP reassembly, various protocol analyzers
-    - HTTP, TLS, DNS, SSH, and many more to come
+    - HTTP, TLS, DNS, SSH, SOCKS5, and many more to come
     - "Fully encrypted traffic" detection for Shadowsocks,
       etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
     - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
@@ -103,6 +103,10 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
       a: "0.0.0.0"
       aaaa: "::"
   expr: dns != nil && dns.qr && any(dns.questions, {.name endsWith "v2ex.com"})
+
+- name: block google.com:80 via SOCKS5
+  action: block
+  expr: string(socks5?.req?.addr) endsWith "google.com" && socks5?.req?.port == 80
 ```
 
 #### Supported actions
