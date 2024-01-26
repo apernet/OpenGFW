@@ -1,9 +1,10 @@
 package tcp
 
 import (
+	"net"
+
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/analyzer/utils"
-	"net"
 )
 
 const (
