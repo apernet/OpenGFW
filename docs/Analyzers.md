@@ -224,7 +224,8 @@ Example for blocking all SSH connections:
         772,
         771
       ],
-      "version": 771
+      "version": 771,
+      "ech": true
     },
     "resp": {
       "cipher": 4866,
