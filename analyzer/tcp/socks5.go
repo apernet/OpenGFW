@@ -35,7 +35,7 @@ func (a *Socks5Analyzer) Name() string {
 
 func (a *Socks5Analyzer) Limit() int {
 	// TODO: more precise calculate
-	return 0
+	return 1298
 }
 
 func (a *Socks5Analyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
