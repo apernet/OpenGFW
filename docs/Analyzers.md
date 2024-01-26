@@ -269,11 +269,11 @@ Example for blocking Trojan connections:
   expr: trojan != nil && trojan.yes
 ```
 
-## Socks5
+## SOCKS5
 
-Socks5 that don't need auth:
+SOCKS5 without auth:
 
-``` json
+```json5
 {
   "socks5": {
     "req": {
@@ -298,9 +298,9 @@ Socks5 that don't need auth:
 }
 ```
 
-Socks5 that need auth:
+SOCKS5 with auth:
 
-``` json
+```json5
 {
   "socks5": {
     "req": {
@@ -328,16 +328,14 @@ Socks5 that need auth:
 }
 ```
 
-Example for blocking Socks5 connections:
+Example for blocking connections to `google.com:80` and user `foobar`:
 
 ```yaml
-# Block connection to google.com:80
-- name: Block Google
+- name: Block SOCKS5 google.com:80
   action: block
   expr: string(socks5?.req?.addr) endsWith "google.com" && socks5?.req?.port == 80
 
-# Block specified user
-- name: Block user foobar
+- name: Block SOCKS5 user foobar
   action: block
   expr: socks5?.req?.auth?.method == 2 && socks5?.req?.auth?.username == "foobar"
 ```
