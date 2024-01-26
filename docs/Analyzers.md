@@ -268,3 +268,76 @@ Example for blocking Trojan connections:
   action: block
   expr: trojan != nil && trojan.yes
 ```
+
+## Socks5
+
+Socks5 that don't need auth:
+
+``` json
+{
+  "socks5": {
+    "req": {
+      "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
+      "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "addr": "google.com",
+      "port": 80,
+      "auth": {
+        "method": 0     // 0x00: no auth, 0x02: username/password
+      }
+    },
+    "resp": {
+      "rep": 0,         // 0x00: success
+      "addr_type": 1,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "addr": "198.18.1.31",
+      "port": 80,
+      "auth": {
+        "method": 0     // 0x00: no auth, 0x02: username/password
+      }
+    }
+  }
+}
+```
+
+Socks5 that need auth:
+
+``` json
+{
+  "socks5": {
+    "req": {
+      "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
+      "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "addr": "google.com",
+      "port": 80,
+      "auth": {
+        "method": 2,    // 0x00: no auth, 0x02: username/password
+        "username": "user",
+        "password": "pass"
+      }
+    },
+    "resp": {
+      "rep": 0,         // 0x00: success
+      "addr_type": 1,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "addr": "198.18.1.31",
+      "port": 80,
+      "auth": {
+        "method": 2,    // 0x00: no auth, 0x02: username/password
+        "status": 0     // 0x00: success, 0x01: failure
+      }
+    }
+  }
+}
+```
+
+Example for blocking Socks5 connections:
+
+```yaml
+# Block connection to google.com:80
+- name: Block Google
+  action: block
+  expr: string(socks5?.req?.addr) endsWith "google.com" && socks5?.req?.port == 80
+
+# Block specified user
+- name: Block user foobar
+  action: block
+  expr: socks5?.req?.auth?.method == 2 && socks5?.req?.auth?.username == "foobar"
+```
