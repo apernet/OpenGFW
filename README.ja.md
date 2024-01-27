@@ -15,7 +15,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 
 ## 特徴
 
-- フルIP/TCP再アセンブル、各種プロトコルアナライザー
+- フル IP/TCP 再アセンブル、各種プロトコルアナライザー
   - HTTP、TLS、DNS、SSH、その他多数
   - Shadowsocks の"完全に暗号化されたトラフィック"の検出、
     など。 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
@@ -99,6 +99,10 @@ workers:
       a: "0.0.0.0"
       aaaa: "::"
   expr: dns != nil && dns.qr && any(dns.questions, {.name endsWith "v2ex.com"})
+
+- name: block google socks
+  action: block
+  expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
 ```
 
 #### サポートされるアクション

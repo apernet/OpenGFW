@@ -3,7 +3,6 @@
 [![License][1]][2]
 
 [1]: https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg
-
 [2]: LICENSE
 
 **[中文文档](README.zh.md)**
@@ -21,11 +20,11 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 ## Features
 
 - Full IP/TCP reassembly, various protocol analyzers
-    - HTTP, TLS, DNS, SSH, SOCKS5, and many more to come
-    - "Fully encrypted traffic" detection for Shadowsocks,
-      etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
-    - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
-    - [WIP] Machine learning based traffic classification
+  - HTTP, TLS, DNS, SSH, SOCKS5, and many more to come
+  - "Fully encrypted traffic" detection for Shadowsocks,
+    etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+  - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
+  - [WIP] Machine learning based traffic classification
 - Full IPv4 and IPv6 support
 - Flow-based multicore load balancing
 - Connection offloading
@@ -105,9 +104,9 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
       aaaa: "::"
   expr: dns != nil && dns.qr && any(dns.questions, {.name endsWith "v2ex.com"})
 
-- name: block google.com:80 via SOCKS5
+- name: block google socks
   action: block
-  expr: string(socks5?.req?.addr) endsWith "google.com" && socks5?.req?.port == 80
+  expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
 ```
 
 #### Supported actions
