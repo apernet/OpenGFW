@@ -44,6 +44,10 @@ func (lsm *LinearStateMachine) Run() (cancelled bool, done bool) {
 	return false, true
 }
 
+func (lsm *LinearStateMachine) AppendSteps(steps ...func() LSMAction) {
+	lsm.Steps = append(lsm.Steps, steps...)
+}
+
 func (lsm *LinearStateMachine) Reset() {
 	lsm.index = 0
 	lsm.cancelled = false

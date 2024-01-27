@@ -8,7 +8,23 @@ import (
 )
 
 const (
+	SocksInvalid = iota
+	Socks4
+	Socks4A
+	Socks5
+
+	Socks4Version = 0x04
 	Socks5Version = 0x05
+
+	Socks4ReplyVN = 0x00
+
+	Socks4CmdTCPConnect = 0x01
+	Socks4CmdTCPBind    = 0x02
+
+	Socks4ReqGranted        = 0x5A
+	Socks4ReqRejectOrFailed = 0x5B
+	Socks4ReqRejectIdentd   = 0x5C
+	Socks4ReqRejectUser     = 0x5D
 
 	Socks5CmdTCPConnect   = 0x01
 	Socks5CmdTCPBind      = 0x02
@@ -26,24 +42,24 @@ const (
 	Socks5AddrTypeIPv6   = 0x04
 )
 
-var _ analyzer.Analyzer = (*Socks5Analyzer)(nil)
+var _ analyzer.Analyzer = (*SocksAnalyzer)(nil)
 
-type Socks5Analyzer struct{}
+type SocksAnalyzer struct{}
 
-func (a *Socks5Analyzer) Name() string {
-	return "socks5"
+func (a *SocksAnalyzer) Name() string {
+	return "socks"
 }
 
-func (a *Socks5Analyzer) Limit() int {
-	// TODO: more precise calculate
-	return 1298
+func (a *SocksAnalyzer) Limit() int {
+	// Socks4 length limit cannot be predicted
+	return 0
 }
 
-func (a *Socks5Analyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
-	return newSocks5Stream(logger)
+func (a *SocksAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
+	return newSocksStream(logger)
 }
 
-type socks5Stream struct {
+type socksStream struct {
 	logger analyzer.Logger
 
 	reqBuf     *utils.ByteBuffer
@@ -58,6 +74,8 @@ type socks5Stream struct {
 	respLSM     *utils.LinearStateMachine
 	respDone    bool
 
+	version int
+
 	authReqMethod int
 	authUsername  string
 	authPassword  string
@@ -65,23 +83,18 @@ type socks5Stream struct {
 	authRespMethod int
 }
 
-func newSocks5Stream(logger analyzer.Logger) *socks5Stream {
-	s := &socks5Stream{logger: logger, reqBuf: &utils.ByteBuffer{}, respBuf: &utils.ByteBuffer{}}
+func newSocksStream(logger analyzer.Logger) *socksStream {
+	s := &socksStream{logger: logger, reqBuf: &utils.ByteBuffer{}, respBuf: &utils.ByteBuffer{}}
 	s.reqLSM = utils.NewLinearStateMachine(
-		s.parseSocks5ReqVersion,
-		s.parseSocks5ReqMethod,
-		s.parseSocks5ReqAuth,
-		s.parseSocks5ReqConnInfo,
+		s.parseSocksReqVersion,
 	)
 	s.respLSM = utils.NewLinearStateMachine(
-		s.parseSocks5RespVerAndMethod,
-		s.parseSocks5RespAuth,
-		s.parseSocks5RespConnInfo,
+		s.parseSocksRespVersion,
 	)
 	return s
 }
 
-func (s *socks5Stream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, d bool) {
+func (s *socksStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, d bool) {
 	if skip != 0 {
 		return nil, true
 	}
@@ -108,15 +121,19 @@ func (s *socks5Stream) Feed(rev, start, end bool, skip int, data []byte) (u *ana
 		if s.reqUpdated {
 			update = &analyzer.PropUpdate{
 				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"req": s.reqMap},
+				M: analyzer.PropMap{
+					"version": s.socksVersion(),
+					"req":     s.reqMap,
+				},
 			}
 			s.reqUpdated = false
 		}
 	}
+
 	return update, cancelled || (s.reqDone && s.respDone)
 }
 
-func (s *socks5Stream) Close(limited bool) *analyzer.PropUpdate {
+func (s *socksStream) Close(limited bool) *analyzer.PropUpdate {
 	s.reqBuf.Reset()
 	s.respBuf.Reset()
 	s.reqMap = nil
@@ -124,18 +141,58 @@ func (s *socks5Stream) Close(limited bool) *analyzer.PropUpdate {
 	return nil
 }
 
-func (s *socks5Stream) parseSocks5ReqVersion() utils.LSMAction {
+func (s *socksStream) parseSocksReqVersion() utils.LSMAction {
 	socksVer, ok := s.reqBuf.GetByte(true)
 	if !ok {
 		return utils.LSMActionPause
 	}
-	if socksVer != Socks5Version {
+	if socksVer != Socks4Version && socksVer != Socks5Version {
 		return utils.LSMActionCancel
+	}
+	s.reqMap = make(analyzer.PropMap)
+	s.reqUpdated = true
+	if socksVer == Socks4Version {
+		s.version = Socks4
+		s.reqLSM.AppendSteps(
+			s.parseSocks4ReqIpAndPort,
+			s.parseSocks4ReqUserId,
+			s.parseSocks4ReqHostname,
+		)
+	} else {
+		s.version = Socks5
+		s.reqLSM.AppendSteps(
+			s.parseSocks5ReqMethod,
+			s.parseSocks5ReqAuth,
+			s.parseSocks5ReqConnInfo,
+		)
 	}
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5ReqMethod() utils.LSMAction {
+func (s *socksStream) parseSocksRespVersion() utils.LSMAction {
+	socksVer, ok := s.respBuf.GetByte(true)
+	if !ok {
+		return utils.LSMActionPause
+	}
+	if (s.version == Socks4 || s.version == Socks4A) && socksVer != Socks4ReplyVN ||
+		s.version == Socks5 && socksVer != Socks5Version || s.version == SocksInvalid {
+		return utils.LSMActionCancel
+	}
+	if socksVer == Socks4ReplyVN {
+		s.respLSM.AppendSteps(
+			s.parseSocks4RespPacket,
+		)
+	} else {
+		s.respLSM.AppendSteps(
+			s.parseSocks5RespMethod,
+			s.parseSocks5RespAuth,
+			s.parseSocks5RespConnInfo,
+		)
+	}
+	return utils.LSMActionNext
+}
+
+func (s *socksStream) parseSocks5ReqMethod() utils.LSMAction {
 	nMethods, ok := s.reqBuf.GetByte(false)
 	if !ok {
 		return utils.LSMActionPause
@@ -159,11 +216,10 @@ func (s *socks5Stream) parseSocks5ReqMethod() utils.LSMAction {
 			// TODO: more auth method to support
 		}
 	}
-	s.reqMap = make(analyzer.PropMap)
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5ReqAuth() utils.LSMAction {
+func (s *socksStream) parseSocks5ReqAuth() utils.LSMAction {
 	switch s.authReqMethod {
 	case Socks5AuthNotRequired:
 		s.reqMap["auth"] = analyzer.PropMap{"method": s.authReqMethod}
@@ -199,7 +255,7 @@ func (s *socks5Stream) parseSocks5ReqAuth() utils.LSMAction {
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5ReqConnInfo() utils.LSMAction {
+func (s *socksStream) parseSocks5ReqConnInfo() utils.LSMAction {
 	/* preInfo struct
 	+----+-----+-------+------+-------------+
 	|VER | CMD |  RSV  | ATYP | DST.ADDR(1) |
@@ -263,20 +319,17 @@ func (s *socks5Stream) parseSocks5ReqConnInfo() utils.LSMAction {
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5RespVerAndMethod() utils.LSMAction {
-	verAndMethod, ok := s.respBuf.Get(2, true)
+func (s *socksStream) parseSocks5RespMethod() utils.LSMAction {
+	method, ok := s.respBuf.Get(1, true)
 	if !ok {
 		return utils.LSMActionPause
 	}
-	if verAndMethod[0] != Socks5Version {
-		return utils.LSMActionCancel
-	}
-	s.authRespMethod = int(verAndMethod[1])
+	s.authRespMethod = int(method[0])
 	s.respMap = make(analyzer.PropMap)
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5RespAuth() utils.LSMAction {
+func (s *socksStream) parseSocks5RespAuth() utils.LSMAction {
 	switch s.authRespMethod {
 	case Socks5AuthNotRequired:
 		s.respMap["auth"] = analyzer.PropMap{"method": s.authRespMethod}
@@ -300,7 +353,7 @@ func (s *socks5Stream) parseSocks5RespAuth() utils.LSMAction {
 	return utils.LSMActionNext
 }
 
-func (s *socks5Stream) parseSocks5RespConnInfo() utils.LSMAction {
+func (s *socksStream) parseSocks5RespConnInfo() utils.LSMAction {
 	/* preInfo struct
 	+----+-----+-------+------+-------------+
 	|VER | REP |  RSV  | ATYP | BND.ADDR(1) |
@@ -359,4 +412,97 @@ func (s *socks5Stream) parseSocks5RespConnInfo() utils.LSMAction {
 	s.respMap["port"] = port
 	s.respUpdated = true
 	return utils.LSMActionNext
+}
+
+func (s *socksStream) parseSocks4ReqIpAndPort() utils.LSMAction {
+	/* Following field will be parsed in this state:
+	+-----+----------+--------+
+	| CMD | DST.PORT | DST.IP |
+	+-----+----------+--------+
+	*/
+	pkt, ok := s.reqBuf.Get(7, true)
+	if !ok {
+		return utils.LSMActionPause
+	}
+	if pkt[0] != Socks4CmdTCPConnect && pkt[0] != Socks4CmdTCPBind {
+		return utils.LSMActionCancel
+	}
+
+	dstPort := uint16(pkt[1])<<8 | uint16(pkt[2])
+	dstIp := net.IPv4(pkt[3], pkt[4], pkt[5], pkt[6]).String()
+
+	// Socks4a extension
+	if pkt[3] == 0 && pkt[4] == 0 && pkt[5] == 0 {
+		s.version = Socks4A
+	}
+
+	s.reqMap["cmd"] = pkt[0]
+	s.reqMap["addr"] = dstIp
+	s.reqMap["addr_type"] = Socks5AddrTypeIPv4
+	s.reqMap["port"] = dstPort
+	s.reqUpdated = true
+	return utils.LSMActionNext
+}
+
+func (s *socksStream) parseSocks4ReqUserId() utils.LSMAction {
+	userIdSlice, ok := s.reqBuf.GetUntil([]byte("\x00"), true, true)
+	if !ok {
+		return utils.LSMActionPause
+	}
+	userId := string(userIdSlice[:len(userIdSlice)-1])
+	s.reqMap["auth"] = analyzer.PropMap{
+		"user_id": userId,
+	}
+	s.reqUpdated = true
+	return utils.LSMActionNext
+}
+
+func (s *socksStream) parseSocks4ReqHostname() utils.LSMAction {
+	// Only Socks4a support hostname
+	if s.version != Socks4A {
+		return utils.LSMActionNext
+	}
+	hostnameSlice, ok := s.reqBuf.GetUntil([]byte("\x00"), true, true)
+	if !ok {
+		return utils.LSMActionPause
+	}
+	hostname := string(hostnameSlice[:len(hostnameSlice)-1])
+	s.reqMap["addr"] = hostname
+	s.reqMap["addr_type"] = Socks5AddrTypeDomain
+	s.reqUpdated = true
+	return utils.LSMActionNext
+}
+
+func (s *socksStream) parseSocks4RespPacket() utils.LSMAction {
+	pkt, ok := s.respBuf.Get(7, true)
+	if !ok {
+		return utils.LSMActionPause
+	}
+	if pkt[0] != Socks4ReqGranted &&
+		pkt[0] != Socks4ReqRejectOrFailed &&
+		pkt[0] != Socks4ReqRejectIdentd &&
+		pkt[0] != Socks4ReqRejectUser {
+		return utils.LSMActionCancel
+	}
+	dstPort := uint16(pkt[1])<<8 | uint16(pkt[2])
+	dstIp := net.IPv4(pkt[3], pkt[4], pkt[5], pkt[6]).String()
+	s.respMap = analyzer.PropMap{
+		"rep":       pkt[0],
+		"addr":      dstIp,
+		"addr_type": Socks5AddrTypeIPv4,
+		"port":      dstPort,
+	}
+	s.respUpdated = true
+	return utils.LSMActionNext
+}
+
+func (s *socksStream) socksVersion() int {
+	switch s.version {
+	case Socks4, Socks4A:
+		return Socks4Version
+	case Socks5:
+		return Socks5Version
+	default:
+		return SocksInvalid
+	}
 }
