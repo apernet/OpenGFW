@@ -20,7 +20,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 ## Features
 
 - Full IP/TCP reassembly, various protocol analyzers
-  - HTTP, TLS, DNS, SSH, SOCKS5, and many more to come
+  - HTTP, TLS, DNS, SSH, SOCKS4/5, and many more to come
   - "Fully encrypted traffic" detection for Shadowsocks,
     etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)

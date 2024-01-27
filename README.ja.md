@@ -16,7 +16,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 ## 特徴
 
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
-  - HTTP、TLS、DNS、SSH、その他多数
+  - HTTP、TLS、DNS、SSH、SOCKS4/5、その他多数
   - Shadowsocks の"完全に暗号化されたトラフィック"の検出、
     など。 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - トロイの木馬キラー (https://github.com/XTLS/Trojan-killer) に基づくトロイの木馬 (プロキシプロトコル) 検出
@@ -108,6 +108,6 @@ workers:
 #### サポートされるアクション
 
 - `allow`: 接続を許可し、それ以上の処理は行わない。
-- `block`: 接続をブロックし、TCP 接続の場合は TCP RST を送信する。
+- `block`: 接続をブロックし。
 - `drop`: UDP の場合、ルールのトリガーとなったパケットをドロップし、同じフローに含まれる以降のパケットの処理を継続する。TCP の場合は、`block` と同じ。
 - `modify`: UDP の場合、与えられた修飾子を使って、ルールをトリガしたパケットを修正し、同じフロー内の今後のパケットを処理し続ける。TCP の場合は、`allow` と同じ。
