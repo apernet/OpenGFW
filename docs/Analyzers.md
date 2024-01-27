@@ -279,7 +279,7 @@ SOCKS4:
     "version": 4,
     "req": {
       "cmd": 1,
-      "addr_type": 1,     // same with socks5
+      "addr_type": 1,     // same as socks5
       "addr": "1.1.1.1",
       // for socks4a
       // "addr_type": 3,
