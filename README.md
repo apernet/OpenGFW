@@ -112,7 +112,7 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 #### Supported actions
 
 - `allow`: Allow the connection, no further processing.
-- `block`: Block the connection, no further processing. Send a TCP RST if it's a TCP connection.
+- `block`: Block the connection, no further processing.
 - `drop`: For UDP, drop the packet that triggered the rule, continue processing future packets in the same flow. For
   TCP, same as `block`.
 - `modify`: For UDP, modify the packet that triggered the rule using the given modifier, continue processing future
