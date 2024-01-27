@@ -269,13 +269,42 @@ Example for blocking Trojan connections:
   expr: trojan != nil && trojan.yes
 ```
 
-## SOCKS5
+## SOCKS
+
+SOCKS4:
+
+```json5
+{
+  "socks": {
+    "version": 4,
+    "req": {
+      "cmd": 1,
+      "addr_type": 1,     // same as socks5
+      "addr": "1.1.1.1",
+      // for socks4a
+      // "addr_type": 3,
+      // "addr": "google.com",
+      "port": 443,
+      "auth": {
+        "user_id": "user"
+      }
+    },
+    "resp": {
+      "rep": 90,          // 0x5A(90) granted
+      "addr_type": 1,
+      "addr": "1.1.1.1",
+      "port": 443
+    }
+  }
+}
+```
 
 SOCKS5 without auth:
 
 ```json5
 {
-  "socks5": {
+  "socks": {
+    "version": 5,
     "req": {
       "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
       "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
@@ -302,7 +331,8 @@ SOCKS5 with auth:
 
 ```json5
 {
-  "socks5": {
+  "socks": {
+    "version": 5,
     "req": {
       "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
       "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
@@ -331,11 +361,11 @@ SOCKS5 with auth:
 Example for blocking connections to `google.com:80` and user `foobar`:
 
 ```yaml
-- name: Block SOCKS5 google.com:80
+- name: Block SOCKS google.com:80
   action: block
-  expr: string(socks5?.req?.addr) endsWith "google.com" && socks5?.req?.port == 80
+  expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
 
-- name: Block SOCKS5 user foobar
+- name: Block SOCKS user foobar
   action: block
-  expr: socks5?.req?.auth?.method == 2 && socks5?.req?.auth?.username == "foobar"
+  expr: socks?.req?.auth?.method == 2 && socks?.req?.auth?.username == "foobar"
 ```
