@@ -269,6 +269,57 @@ Example for blocking Trojan connections:
   expr: trojan != nil && trojan.yes
 ```
 
+## SOCKS4/SOCKS4A
+
+SOCKS4:
+
+```json5
+{
+  "socks4": {
+    "req": {
+      "cmd": 1,         // 0x01: connect, 0x02: bind
+      "ip": "1.1.1.1",
+      "port": 443,
+      "user_id": "user_id"
+    },
+    "resp": {
+      "rep": 90,        // 0x5A(90): granted
+      "ip": "1.1.1.1",
+      "port": 443
+    }
+  }
+}
+```
+
+SOCKS4A:
+
+```json5
+{
+  "socks4": {
+    "req": {
+      "cmd": 1,         // 0x01: connect, 0x02: bind
+      "ip": "0.0.0.1",
+      "port": 443,
+      "user_id": "user_id",
+      "hostname": "google.com"
+    },
+    "resp": {
+      "rep": 90,        // 0x5A(90): granted
+      "ip": "0.0.0.1",
+      "port": 443
+    }
+  }
+}
+```
+
+Example for blocking connections to `google.com:80`:
+
+```yaml
+- name: block baidu socks
+  action: block
+  expr: string(socks4?.req?.hostname) endsWith "bilibili.com" && socks4?.req?.port == 80
+```
+
 ## SOCKS5
 
 SOCKS5 without auth:
