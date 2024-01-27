@@ -10,20 +10,20 @@ import (
 const (
 	Socks5Version = 0x05
 
-	CmdTCPConnect   = 0x01
-	CmdTCPBind      = 0x02
-	CmdUDPAssociate = 0x03
+	Socks5CmdTCPConnect   = 0x01
+	Socks5CmdTCPBind      = 0x02
+	Socks5CmdUDPAssociate = 0x03
 
-	AuthNotRequired      = 0x00
-	AuthPassword         = 0x02
-	AuthNoMatchingMethod = 0xFF
+	Socks5AuthNotRequired      = 0x00
+	Socks5AuthPassword         = 0x02
+	Socks5AuthNoMatchingMethod = 0xFF
 
-	AuthSuccess = 0x00
-	AuthFailure = 0x01
+	Socks5AuthSuccess = 0x00
+	Socks5AuthFailure = 0x01
 
-	AddrTypeIPv4   = 0x01
-	AddrTypeDomain = 0x03
-	AddrTypeIPv6   = 0x04
+	Socks5AddrTypeIPv4   = 0x01
+	Socks5AddrTypeDomain = 0x03
+	Socks5AddrTypeIPv6   = 0x04
 )
 
 var _ analyzer.Analyzer = (*Socks5Analyzer)(nil)
@@ -40,7 +40,7 @@ func (a *Socks5Analyzer) Limit() int {
 }
 
 func (a *Socks5Analyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
-	return newSocksStream(logger)
+	return newSocks5Stream(logger)
 }
 
 type socks5Stream struct {
@@ -65,7 +65,7 @@ type socks5Stream struct {
 	authRespMethod int
 }
 
-func newSocksStream(logger analyzer.Logger) *socks5Stream {
+func newSocks5Stream(logger analyzer.Logger) *socks5Stream {
 	s := &socks5Stream{logger: logger, reqBuf: &utils.ByteBuffer{}, respBuf: &utils.ByteBuffer{}}
 	s.reqLSM = utils.NewLinearStateMachine(
 		s.parseSocks5ReqVersion,
@@ -146,14 +146,14 @@ func (s *socks5Stream) parseSocks5ReqMethod() utils.LSMAction {
 	}
 
 	// For convenience, we only take the first method we can process
-	s.authReqMethod = AuthNoMatchingMethod
+	s.authReqMethod = Socks5AuthNoMatchingMethod
 	for _, method := range methods[1:] {
 		switch method {
-		case AuthNotRequired:
-			s.authReqMethod = AuthNotRequired
+		case Socks5AuthNotRequired:
+			s.authReqMethod = Socks5AuthNotRequired
 			break
-		case AuthPassword:
-			s.authReqMethod = AuthPassword
+		case Socks5AuthPassword:
+			s.authReqMethod = Socks5AuthPassword
 			break
 		default:
 			// TODO: more auth method to support
@@ -165,9 +165,9 @@ func (s *socks5Stream) parseSocks5ReqMethod() utils.LSMAction {
 
 func (s *socks5Stream) parseSocks5ReqAuth() utils.LSMAction {
 	switch s.authReqMethod {
-	case AuthNotRequired:
+	case Socks5AuthNotRequired:
 		s.reqMap["auth"] = analyzer.PropMap{"method": s.authReqMethod}
-	case AuthPassword:
+	case Socks5AuthPassword:
 		meta, ok := s.reqBuf.Get(2, false)
 		if !ok {
 			return utils.LSMActionPause
@@ -211,18 +211,18 @@ func (s *socks5Stream) parseSocks5ReqConnInfo() utils.LSMAction {
 	}
 
 	// verify socks version
-	if preInfo[0] != 0x05 {
+	if preInfo[0] != Socks5Version {
 		return utils.LSMActionCancel
 	}
 
 	var pktLen int
 	switch int(preInfo[3]) {
-	case AddrTypeIPv4:
+	case Socks5AddrTypeIPv4:
 		pktLen = 10
-	case AddrTypeDomain:
+	case Socks5AddrTypeDomain:
 		domainLen := int(preInfo[4])
 		pktLen = 7 + domainLen
-	case AddrTypeIPv6:
+	case Socks5AddrTypeIPv6:
 		pktLen = 22
 	default:
 		return utils.LSMActionCancel
@@ -235,7 +235,7 @@ func (s *socks5Stream) parseSocks5ReqConnInfo() utils.LSMAction {
 
 	// parse cmd
 	cmd := int(pkt[1])
-	if cmd != CmdTCPConnect && cmd != CmdTCPBind && cmd != CmdUDPAssociate {
+	if cmd != Socks5CmdTCPConnect && cmd != Socks5CmdTCPBind && cmd != Socks5CmdUDPAssociate {
 		return utils.LSMActionCancel
 	}
 	s.reqMap["cmd"] = cmd
@@ -244,11 +244,11 @@ func (s *socks5Stream) parseSocks5ReqConnInfo() utils.LSMAction {
 	addrType := int(pkt[3])
 	var addr string
 	switch addrType {
-	case AddrTypeIPv4:
+	case Socks5AddrTypeIPv4:
 		addr = net.IPv4(pkt[4], pkt[5], pkt[6], pkt[7]).String()
-	case AddrTypeDomain:
+	case Socks5AddrTypeDomain:
 		addr = string(pkt[5 : 5+pkt[4]])
-	case AddrTypeIPv6:
+	case Socks5AddrTypeIPv6:
 		addr = net.IP(pkt[4 : 4+net.IPv6len]).String()
 	default:
 		return utils.LSMActionCancel
@@ -278,9 +278,9 @@ func (s *socks5Stream) parseSocks5RespVerAndMethod() utils.LSMAction {
 
 func (s *socks5Stream) parseSocks5RespAuth() utils.LSMAction {
 	switch s.authRespMethod {
-	case AuthNotRequired:
+	case Socks5AuthNotRequired:
 		s.respMap["auth"] = analyzer.PropMap{"method": s.authRespMethod}
-	case AuthPassword:
+	case Socks5AuthPassword:
 		authResp, ok := s.respBuf.Get(2, true)
 		if !ok {
 			return utils.LSMActionPause
@@ -318,12 +318,12 @@ func (s *socks5Stream) parseSocks5RespConnInfo() utils.LSMAction {
 
 	var pktLen int
 	switch int(preInfo[3]) {
-	case AddrTypeIPv4:
+	case Socks5AddrTypeIPv4:
 		pktLen = 10
-	case AddrTypeDomain:
+	case Socks5AddrTypeDomain:
 		domainLen := int(preInfo[4])
 		pktLen = 7 + domainLen
-	case AddrTypeIPv6:
+	case Socks5AddrTypeIPv6:
 		pktLen = 22
 	default:
 		return utils.LSMActionCancel
@@ -342,11 +342,11 @@ func (s *socks5Stream) parseSocks5RespConnInfo() utils.LSMAction {
 	addrType := int(pkt[3])
 	var addr string
 	switch addrType {
-	case AddrTypeIPv4:
+	case Socks5AddrTypeIPv4:
 		addr = net.IPv4(pkt[4], pkt[5], pkt[6], pkt[7]).String()
-	case AddrTypeDomain:
+	case Socks5AddrTypeDomain:
 		addr = string(pkt[5 : 5+pkt[4]])
-	case AddrTypeIPv6:
+	case Socks5AddrTypeIPv6:
 		addr = net.IP(pkt[4 : 4+net.IPv6len]).String()
 	default:
 		return utils.LSMActionCancel
