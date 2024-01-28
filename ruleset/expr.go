@@ -14,6 +14,7 @@ import (
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
+	"github.com/apernet/OpenGFW/ruleset/acl"
 )
 
 // ExprRule is the external representation of an expression rule.
@@ -51,8 +52,9 @@ type compiledExprRule struct {
 var _ Ruleset = (*exprRuleset)(nil)
 
 type exprRuleset struct {
-	Rules []compiledExprRule
-	Ans   []analyzer.Analyzer
+	Rules      []compiledExprRule
+	Ans        []analyzer.Analyzer
+	GeoMatcher *acl.GeoMatcher
 }
 
 func (r *exprRuleset) Analyzers(info StreamInfo) []analyzer.Analyzer {
@@ -88,6 +90,10 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	fullAnMap := analyzersToMap(ans)
 	fullModMap := modifiersToMap(mods)
 	depAnMap := make(map[string]analyzer.Analyzer)
+	geoMatcher, err := acl.NewGeoLoader()
+	if err != nil {
+		return nil, err
+	}
 	// Compile all rules and build a map of analyzers that are used by the rules.
 	for _, rule := range rules {
 		action, ok := actionStringToAction(rule.Action)
@@ -95,12 +101,28 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			return nil, fmt.Errorf("rule %q has invalid action %q", rule.Name, rule.Action)
 		}
 		visitor := &depVisitor{Analyzers: make(map[string]struct{})}
+		geoip := expr.Function(
+			"geoip",
+			func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
+			},
+			new(func(string, string) bool),
+		)
+		geosite := expr.Function(
+			"geosite",
+			func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
+			},
+			new(func(string, string) bool),
+		)
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
 				c.Strict = false
 				c.Expect = reflect.Bool
 				c.Visitors = append(c.Visitors, visitor)
 			},
+			geoip,
+			geosite,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("rule %q has invalid expression: %w", rule.Name, err)
@@ -137,8 +159,9 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		depAns = append(depAns, a)
 	}
 	return &exprRuleset{
-		Rules: compiledRules,
-		Ans:   depAns,
+		Rules:      compiledRules,
+		Ans:        depAns,
+		GeoMatcher: geoMatcher,
 	}, nil
 }
 
@@ -166,7 +189,7 @@ func streamInfoToExprEnv(info StreamInfo) map[string]interface{} {
 
 func isBuiltInAnalyzer(name string) bool {
 	switch name {
-	case "id", "proto", "ip", "port":
+	case "id", "proto", "ip", "port", "geoip", "geosite":
 		return true
 	default:
 		return false
