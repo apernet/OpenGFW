@@ -85,12 +85,12 @@ func (r *exprRuleset) Match(info StreamInfo) (MatchResult, error) {
 // CompileExprRules compiles a list of expression rules into a ruleset.
 // It returns an error if any of the rules are invalid, or if any of the analyzers
 // used by the rules are unknown (not provided in the analyzer list).
-func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier.Modifier) (Ruleset, error) {
+func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier.Modifier, config *BuiltinConfig) (Ruleset, error) {
 	var compiledRules []compiledExprRule
 	fullAnMap := analyzersToMap(ans)
 	fullModMap := modifiersToMap(mods)
 	depAnMap := make(map[string]analyzer.Analyzer)
-	geoMatcher, err := geo.NewGeoMatcher()
+	geoMatcher, err := geo.NewGeoMatcher(config.GeoSiteFilename, config.GeoIpFilename)
 	if err != nil {
 		return nil, err
 	}

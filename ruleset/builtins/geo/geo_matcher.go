@@ -14,8 +14,17 @@ type GeoMatcher struct {
 	ipMatcherLock   sync.Mutex
 }
 
-func NewGeoMatcher() (*GeoMatcher, error) {
-	geoLoader := NewDefaultGeoLoader()
+func NewGeoMatcher(geoSiteFilename, geoIpFilename string) (*GeoMatcher, error) {
+	geoLoader := NewDefaultGeoLoader(geoSiteFilename, geoIpFilename)
+
+	// do this to prevent lazy loading
+	if _, err := geoLoader.LoadGeoSite(); err != nil {
+		return nil, err
+	}
+	if _, err := geoLoader.LoadGeoIP(); err != nil {
+		return nil, err
+	}
+
 	return &GeoMatcher{
 		geoLoader:      geoLoader,
 		geoSiteMatcher: make(map[string]hostMatcher),

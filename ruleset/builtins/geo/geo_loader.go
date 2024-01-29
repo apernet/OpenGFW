@@ -35,11 +35,10 @@ type V2GeoLoader struct {
 	geositeMap map[string]*v2geo.GeoSite
 }
 
-func NewDefaultGeoLoader() *V2GeoLoader {
+func NewDefaultGeoLoader(geoSiteFilename, geoIpFilename string) *V2GeoLoader {
 	return &V2GeoLoader{
-		GeoIPFilename:   geoipFilename,
-		GeoSiteFilename: geositeFilename,
-
+		GeoIPFilename:   geoIpFilename,
+		GeoSiteFilename: geoSiteFilename,
 		DownloadFunc:    func(filename, url string) {},
 		DownloadErrFunc: func(err error) {},
 	}

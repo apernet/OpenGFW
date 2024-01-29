@@ -161,6 +161,7 @@ func initLogger() {
 type cliConfig struct {
 	IO      cliConfigIO      `mapstructure:"io"`
 	Workers cliConfigWorkers `mapstructure:"workers"`
+	Geo     cliConfigGeo     `mapstructure:"geo"`
 }
 
 type cliConfigIO struct {
@@ -174,6 +175,11 @@ type cliConfigWorkers struct {
 	TCPMaxBufferedPagesTotal   int `mapstructure:"tcpMaxBufferedPagesTotal"`
 	TCPMaxBufferedPagesPerConn int `mapstructure:"tcpMaxBufferedPagesPerConn"`
 	UDPMaxStreams              int `mapstructure:"udpMaxStreams"`
+}
+
+type cliConfigGeo struct {
+	GeoIp   string `mapstructure:"geoip"`
+	GeoSite string `mapstructure:"geosite"`
 }
 
 func (c *cliConfig) fillLogger(config *engine.Config) error {
@@ -202,6 +208,12 @@ func (c *cliConfig) fillWorkers(config *engine.Config) error {
 	return nil
 }
 
+func (c *cliConfig) fillGeo(config *engine.Config) error {
+	config.GeoSiteFilename = c.Geo.GeoSite
+	config.GeoIpFilename = c.Geo.GeoIp
+	return nil
+}
+
 // Config validates the fields and returns a ready-to-use engine config.
 // This does not include the ruleset.
 func (c *cliConfig) Config() (*engine.Config, error) {
@@ -210,6 +222,7 @@ func (c *cliConfig) Config() (*engine.Config, error) {
 		c.fillLogger,
 		c.fillIO,
 		c.fillWorkers,
+		c.fillGeo,
 	}
 	for _, f := range fillers {
 		if err := f(engineConfig); err != nil {
@@ -244,7 +257,11 @@ func runMain(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to load rules", zap.Error(err))
 	}
-	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers)
+	rsConfig := &ruleset.BuiltinConfig{
+		GeoSiteFilename: engineConfig.GeoSiteFilename,
+		GeoIpFilename:   engineConfig.GeoIpFilename,
+	}
+	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
 	if err != nil {
 		logger.Fatal("failed to compile rules", zap.Error(err))
 	}
