@@ -14,7 +14,7 @@ import (
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
-	"github.com/apernet/OpenGFW/ruleset/buildins/geo"
+	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 )
 
 // ExprRule is the external representation of an expression rule.
@@ -90,7 +90,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	fullAnMap := analyzersToMap(ans)
 	fullModMap := modifiersToMap(mods)
 	depAnMap := make(map[string]analyzer.Analyzer)
-	geoMatcher, err := geo.NewGeoLoader()
+	geoMatcher, err := geo.NewGeoMatcher()
 	if err != nil {
 		return nil, err
 	}

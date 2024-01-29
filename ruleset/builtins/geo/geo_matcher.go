@@ -15,7 +15,7 @@ type GeoMatcher struct {
 	ipMatcherLock   sync.Mutex
 }
 
-func NewGeoLoader() (*GeoMatcher, error) {
+func NewGeoMatcher() (*GeoMatcher, error) {
 	geoLoader := NewDefaultGeoLoader()
 	return &GeoMatcher{
 		geoLoader:      geoLoader,
