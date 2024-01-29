@@ -21,3 +21,7 @@ type GeoLoader interface {
 	LoadGeoIP() (map[string]*v2geo.GeoIP, error)
 	LoadGeoSite() (map[string]*v2geo.GeoSite, error)
 }
+
+type hostMatcher interface {
+	Match(HostInfo) bool
+}

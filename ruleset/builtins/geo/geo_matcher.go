@@ -1,7 +1,6 @@
 package geo
 
 import (
-	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -30,9 +29,22 @@ func (g *GeoMatcher) MatchGeoIp(ip, condition string) bool {
 
 	matcher, ok := g.geoIpMatcher[condition]
 	if !ok {
-		var errString string
-		matcher, errString = compileHostMatcher("geoip:"+condition, g.geoLoader)
-		if errString != "" {
+		// GeoIP matcher
+		condition = strings.ToLower(condition)
+		country := condition
+		if len(country) == 0 {
+			return false
+		}
+		gMap, err := g.geoLoader.LoadGeoIP()
+		if err != nil {
+			return false
+		}
+		list, ok := gMap[country]
+		if !ok || list == nil {
+			return false
+		}
+		matcher, err = newGeoIPMatcher(list)
+		if err != nil {
 			return false
 		}
 		g.geoIpMatcher[condition] = matcher
@@ -58,98 +70,27 @@ func (g *GeoMatcher) MatchGeoSite(site, condition string) bool {
 
 	matcher, ok := g.geoSiteMatcher[condition]
 	if !ok {
-		var errString string
-		matcher, errString = compileHostMatcher("geosite:"+condition, g.geoLoader)
-		fmt.Println(errString)
-		if errString != "" {
+		// MatchGeoSite matcher
+		condition = strings.ToLower(condition)
+		name, attrs := parseGeoSiteName(condition)
+		if len(name) == 0 {
+			return false
+		}
+		gMap, err := g.geoLoader.LoadGeoSite()
+		if err != nil {
+			return false
+		}
+		list, ok := gMap[name]
+		if !ok || list == nil {
+			return false
+		}
+		matcher, err = newGeositeMatcher(list, attrs)
+		if err != nil {
 			return false
 		}
 		g.geoSiteMatcher[condition] = matcher
 	}
 	return matcher.Match(HostInfo{Name: site})
-}
-
-func compileHostMatcher(addr string, geoLoader GeoLoader) (hostMatcher, string) {
-	addr = strings.ToLower(addr) // Normalize to lower case
-	if addr == "*" || addr == "all" {
-		// Match all hosts
-		return &allMatcher{}, ""
-	}
-	if strings.HasPrefix(addr, "geoip:") {
-		// GeoIP matcher
-		country := addr[6:]
-		if len(country) == 0 {
-			return nil, "empty GeoIP country code"
-		}
-		gMap, err := geoLoader.LoadGeoIP()
-		if err != nil {
-			return nil, err.Error()
-		}
-		list, ok := gMap[country]
-		if !ok || list == nil {
-			return nil, fmt.Sprintf("GeoIP country code %s not found", country)
-		}
-		m, err := newGeoIPMatcher(list)
-		if err != nil {
-			return nil, err.Error()
-		}
-		return m, ""
-	}
-	if strings.HasPrefix(addr, "geosite:") {
-		// MatchGeoSite matcher
-		name, attrs := parseGeoSiteName(addr[8:])
-		if len(name) == 0 {
-			return nil, "empty MatchGeoSite name"
-		}
-		gMap, err := geoLoader.LoadGeoSite()
-		if err != nil {
-			return nil, err.Error()
-		}
-		list, ok := gMap[name]
-		if !ok || list == nil {
-			return nil, fmt.Sprintf("MatchGeoSite name %s not found", name)
-		}
-		m, err := newGeositeMatcher(list, attrs)
-		if err != nil {
-			return nil, err.Error()
-		}
-		return m, ""
-	}
-	if strings.HasPrefix(addr, "suffix:") {
-		// Domain suffix matcher
-		suffix := addr[7:]
-		if len(suffix) == 0 {
-			return nil, "empty domain suffix"
-		}
-		return &domainMatcher{
-			Pattern: suffix,
-			Mode:    domainMatchSuffix,
-		}, ""
-	}
-	if strings.Contains(addr, "/") {
-		// CIDR matcher
-		_, ipnet, err := net.ParseCIDR(addr)
-		if err != nil {
-			return nil, fmt.Sprintf("invalid CIDR address: %s", addr)
-		}
-		return &cidrMatcher{ipnet}, ""
-	}
-	if ip := net.ParseIP(addr); ip != nil {
-		// Single IP matcher
-		return &ipMatcher{ip}, ""
-	}
-	if strings.Contains(addr, "*") {
-		// Wildcard domain matcher
-		return &domainMatcher{
-			Pattern: addr,
-			Mode:    domainMatchWildcard,
-		}, ""
-	}
-	// Nothing else matched, treat it as a non-wildcard domain
-	return &domainMatcher{
-		Pattern: addr,
-		Mode:    domainMatchExact,
-	}, ""
 }
 
 func parseGeoSiteName(s string) (string, []string) {
