@@ -1,4 +1,4 @@
-package acl
+package geo
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/apernet/OpenGFW/ruleset/acl/v2geo"
+	"github.com/apernet/OpenGFW/ruleset/buildins/geo/v2geo"
 )
 
 const (

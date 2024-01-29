@@ -1,4 +1,4 @@
-package acl
+package geo
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apernet/OpenGFW/ruleset/acl/v2geo"
+	"github.com/apernet/OpenGFW/ruleset/buildins/geo/v2geo"
 )
 
 var _ hostMatcher = (*geoipMatcher)(nil)
