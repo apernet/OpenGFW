@@ -26,9 +26,6 @@ type Config struct {
 	WorkerTCPMaxBufferedPagesTotal   int
 	WorkerTCPMaxBufferedPagesPerConn int
 	WorkerUDPMaxStreams              int
-
-	GeoSiteFilename string
-	GeoIpFilename   string
 }
 
 // Logger is the combined logging interface for the engine, workers and analyzers.
