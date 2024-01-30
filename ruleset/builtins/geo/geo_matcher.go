@@ -17,14 +17,6 @@ type GeoMatcher struct {
 func NewGeoMatcher(geoSiteFilename, geoIpFilename string) (*GeoMatcher, error) {
 	geoLoader := NewDefaultGeoLoader(geoSiteFilename, geoIpFilename)
 
-	// do this to prevent lazy loading
-	if _, err := geoLoader.LoadGeoSite(); err != nil {
-		return nil, err
-	}
-	if _, err := geoLoader.LoadGeoIP(); err != nil {
-		return nil, err
-	}
-
 	return &GeoMatcher{
 		geoLoader:      geoLoader,
 		geoSiteMatcher: make(map[string]hostMatcher),
@@ -100,6 +92,16 @@ func (g *GeoMatcher) MatchGeoSite(site, condition string) bool {
 		g.geoSiteMatcher[condition] = matcher
 	}
 	return matcher.Match(HostInfo{Name: site})
+}
+
+func (g *GeoMatcher) LoadGeoSite() error {
+	_, err := g.geoLoader.LoadGeoSite()
+	return err
+}
+
+func (g *GeoMatcher) LoadGeoIP() error {
+	_, err := g.geoLoader.LoadGeoIP()
+	return err
 }
 
 func parseGeoSiteName(s string) (string, []string) {

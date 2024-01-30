@@ -134,6 +134,16 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			}
 			depAnMap[name] = a
 		}
+		if visitor.UseGeoSite {
+			if err := geoMatcher.LoadGeoSite(); err != nil {
+				return nil, fmt.Errorf("rule %q failed to load geosite: %w", rule.Name, err)
+			}
+		}
+		if visitor.UseGeoIp {
+			if err := geoMatcher.LoadGeoIP(); err != nil {
+				return nil, fmt.Errorf("rule %q failed to load geoip: %w", rule.Name, err)
+			}
+		}
 		cr := compiledExprRule{
 			Name:      rule.Name,
 			Action:    action,
@@ -189,7 +199,16 @@ func streamInfoToExprEnv(info StreamInfo) map[string]interface{} {
 
 func isBuiltInAnalyzer(name string) bool {
 	switch name {
-	case "id", "proto", "ip", "port", "geoip", "geosite":
+	case "id", "proto", "ip", "port":
+		return true
+	default:
+		return false
+	}
+}
+
+func isBuiltInFunction(name string) bool {
+	switch name {
+	case "geosite", "geoip":
 		return true
 	default:
 		return false
@@ -233,10 +252,22 @@ func modifiersToMap(mods []modifier.Modifier) map[string]modifier.Modifier {
 
 type depVisitor struct {
 	Analyzers map[string]struct{}
+
+	UseGeoSite bool
+	UseGeoIp   bool
 }
 
 func (v *depVisitor) Visit(node *ast.Node) {
 	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
-		v.Analyzers[idNode.Value] = struct{}{}
+		if isBuiltInFunction(idNode.Value) {
+			switch idNode.Value {
+			case "geosite":
+				v.UseGeoSite = true
+			case "geoip":
+				v.UseGeoIp = true
+			}
+		} else {
+			v.Analyzers[idNode.Value] = struct{}{}
+		}
 	}
 }

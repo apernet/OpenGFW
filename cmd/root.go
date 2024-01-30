@@ -161,7 +161,7 @@ func initLogger() {
 type cliConfig struct {
 	IO      cliConfigIO      `mapstructure:"io"`
 	Workers cliConfigWorkers `mapstructure:"workers"`
-	Geo     cliConfigRuleset `mapstructure:"ruleset"`
+	Ruleset cliConfigRuleset `mapstructure:"ruleset"`
 }
 
 type cliConfigIO struct {
@@ -251,8 +251,8 @@ func runMain(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load rules", zap.Error(err))
 	}
 	rsConfig := &ruleset.BuiltinConfig{
-		GeoSiteFilename: config.Geo.GeoSite,
-		GeoIpFilename:   config.Geo.GeoIp,
+		GeoSiteFilename: config.Ruleset.GeoSite,
+		GeoIpFilename:   config.Ruleset.GeoIp,
 	}
 	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
 	if err != nil {
