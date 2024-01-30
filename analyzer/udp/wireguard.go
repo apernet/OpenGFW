@@ -91,37 +91,30 @@ func (s *wireGuardUDPStream) parseWireGuardPacket(rev bool, data []byte) analyze
 		return nil
 	}
 
-	m := make(analyzer.PropMap)
 	messageType := data[0]
-	m[wireguardPropKeyMessageType] = messageType
+	var propKey string
+	var propValue analyzer.PropMap
 	switch messageType {
 	case wireguardTypeHandshakeInitiation:
-		pm := s.parseWireGuardHandshakeInitiation(rev, data)
-		if pm == nil {
-			return nil
-		}
-		m["handshake_initiation"] = pm
+		propKey = "handshake_initiation"
+		propValue = s.parseWireGuardHandshakeInitiation(rev, data)
 	case wireguardTypeHandshakeResponse:
-		pm := s.parseWireGuardHandshakeResponse(rev, data)
-		if pm == nil {
-			return nil
-		}
-		m["handshake_response"] = pm
+		propKey = "handshake_response"
+		propValue = s.parseWireGuardHandshakeResponse(rev, data)
 	case wireguardTypeData:
-		pm := s.parseWireGuardPacketData(rev, data)
-		if pm == nil {
-			return nil
-		}
-		m["packet_data"] = pm
+		propKey = "packet_data"
+		propValue = s.parseWireGuardPacketData(rev, data)
 	case wireguardTypeCookieReply:
-		pm := s.parseWireGuardPacketCookieReply(rev, data)
-		if pm == nil {
-			return nil
-		}
-		m["packet_cookie_reply"] = pm
-	default:
+		propKey = "packet_cookie_reply"
+		propValue = s.parseWireGuardPacketCookieReply(rev, data)
+	}
+	if propValue == nil {
 		return nil
 	}
+
+	m := make(analyzer.PropMap)
+	m[wireguardPropKeyMessageType] = messageType
+	m[propKey] = propValue
 	return m
 }
 
