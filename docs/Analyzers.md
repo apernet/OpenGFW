@@ -369,3 +369,54 @@ Example for blocking connections to `google.com:80` and user `foobar`:
   action: block
   expr: socks?.req?.auth?.method == 2 && socks?.req?.auth?.username == "foobar"
 ```
+
+
+## WireGuard
+
+```json5
+{
+  "wireguard": {
+    "message_type": 1, // 0x1: handshake_initiation, 0x2: handshake_response, 0x3: packet_cookie_reply, 0x4: packet_data
+    "handshake_initiation": {
+      "sender_index": 0x12345678
+    },
+    "handshake_response": {
+      "sender_index": 0x12345678,
+      "receiver_index": 0x87654321,
+      "receiver_index_matched": true
+    },
+    "packet_data": {
+      "receiver_index": 0x12345678,
+      "receiver_index_matched": true
+    },
+    "packet_cookie_reply": {
+      "receiver_index": 0x12345678,
+      "receiver_index_matched": true
+    }
+  }
+}
+```
+
+Example for blocking WireGuard traffic:
+
+```yaml
+# false positive: high
+- name: Block all WireGuard-like traffic
+  action: block
+  expr: wireguard != nil
+
+# false positive: medium
+- name: Block WireGuard by handshake_initiation
+  action: drop
+  expr: wireguard?.handshake_initiation != nil
+
+# false positive: low
+- name: Block WireGuard by handshake_response
+  action: drop
+  expr: wireguard?.handshake_response?.receiver_index_matched == true
+
+# false positive: pretty low
+- name: Block WireGuard by packet_data
+  action: block
+  expr: wireguard?.packet_data?.receiver_index_matched == true
+```
