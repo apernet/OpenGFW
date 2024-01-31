@@ -16,7 +16,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 ## 特徴
 
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
-  - HTTP、TLS、DNS、SSH、SOCKS4/5、その他多数
+  - HTTP、TLS、DNS、SSH、SOCKS4/5、WireGuard、その他多数
   - Shadowsocks の"完全に暗号化されたトラフィック"の検出、
     など。 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - トロイの木馬キラー (https://github.com/XTLS/Trojan-killer) に基づくトロイの木馬 (プロキシプロトコル) 検出
@@ -103,6 +103,10 @@ workers:
 - name: block google socks
   action: block
   expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
+
+- name: block wireguard by handshake response
+  action: drop
+  expr: wireguard?.handshake_response?.receiver_index_matched == true
 ```
 
 #### サポートされるアクション
