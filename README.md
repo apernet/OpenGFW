@@ -119,6 +119,10 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 - name: block CN geoip
   action: block
   expr: geoip(string(ip.dst), "cn")
+
+- name: block qq number 1145141919 communication
+  action: block
+  expr: oicq != nil && oicq.number == 1145141919
 ```
 
 #### Supported actions
