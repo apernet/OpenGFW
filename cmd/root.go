@@ -92,6 +92,7 @@ var analyzers = []analyzer.Analyzer{
 	&tcp.TLSAnalyzer{},
 	&tcp.TrojanAnalyzer{},
 	&udp.DNSAnalyzer{},
+	&udp.WireGuardAnalyzer{},
 }
 
 var modifiers = []modifier.Modifier{

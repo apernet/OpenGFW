@@ -17,7 +17,7 @@ OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedi
 ## 功能
 
 - 完整的 IP/TCP 重组，各种协议解析器
-  - HTTP, TLS, DNS, SSH, SOCKS4/5, 更多协议正在开发中
+  - HTTP, TLS, DNS, SSH, SOCKS4/5, WireGuard, 更多协议正在开发中
   - Shadowsocks 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - 基于 Trojan-killer 的 Trojan 检测 (https://github.com/XTLS/Trojan-killer)
   - [开发中] 基于机器学习的流量分类
@@ -102,6 +102,10 @@ workers:
 - name: block google socks
   action: block
   expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
+
+- name: block wireguard by handshake response
+  action: drop
+  expr: wireguard?.handshake_response?.receiver_index_matched == true
 
 - name: block bilibili geosite
   action: block

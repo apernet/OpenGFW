@@ -20,7 +20,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 ## Features
 
 - Full IP/TCP reassembly, various protocol analyzers
-  - HTTP, TLS, DNS, SSH, SOCKS4/5, and many more to come
+  - HTTP, TLS, DNS, SSH, SOCKS4/5, WireGuard, and many more to come
   - "Fully encrypted traffic" detection for Shadowsocks,
     etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
@@ -107,6 +107,10 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 - name: block google socks
   action: block
   expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
+
+- name: block wireguard by handshake response
+  action: drop
+  expr: wireguard?.handshake_response?.receiver_index_matched == true
 
 - name: block bilibili geosite
   action: block
