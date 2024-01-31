@@ -206,15 +206,6 @@ func isBuiltInAnalyzer(name string) bool {
 	}
 }
 
-func isBuiltInFunction(name string) bool {
-	switch name {
-	case "geosite", "geoip":
-		return true
-	default:
-		return false
-	}
-}
-
 func actionStringToAction(action string) (Action, bool) {
 	switch strings.ToLower(action) {
 	case "allow":
@@ -259,14 +250,12 @@ type depVisitor struct {
 
 func (v *depVisitor) Visit(node *ast.Node) {
 	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
-		if isBuiltInFunction(idNode.Value) {
-			switch idNode.Value {
-			case "geosite":
-				v.UseGeoSite = true
-			case "geoip":
-				v.UseGeoIp = true
-			}
-		} else {
+		switch idNode.Value {
+		case "geosite":
+			v.UseGeoSite = true
+		case "geoip":
+			v.UseGeoIp = true
+		default:
 			v.Analyzers[idNode.Value] = struct{}{}
 		}
 	}
