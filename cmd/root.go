@@ -161,6 +161,7 @@ func initLogger() {
 type cliConfig struct {
 	IO      cliConfigIO      `mapstructure:"io"`
 	Workers cliConfigWorkers `mapstructure:"workers"`
+	Ruleset cliConfigRuleset `mapstructure:"ruleset"`
 }
 
 type cliConfigIO struct {
@@ -174,6 +175,11 @@ type cliConfigWorkers struct {
 	TCPMaxBufferedPagesTotal   int `mapstructure:"tcpMaxBufferedPagesTotal"`
 	TCPMaxBufferedPagesPerConn int `mapstructure:"tcpMaxBufferedPagesPerConn"`
 	UDPMaxStreams              int `mapstructure:"udpMaxStreams"`
+}
+
+type cliConfigRuleset struct {
+	GeoIp   string `mapstructure:"geoip"`
+	GeoSite string `mapstructure:"geosite"`
 }
 
 func (c *cliConfig) fillLogger(config *engine.Config) error {
@@ -244,7 +250,11 @@ func runMain(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to load rules", zap.Error(err))
 	}
-	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers)
+	rsConfig := &ruleset.BuiltinConfig{
+		GeoSiteFilename: config.Ruleset.GeoSite,
+		GeoIpFilename:   config.Ruleset.GeoIp,
+	}
+	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
 	if err != nil {
 		logger.Fatal("failed to compile rules", zap.Error(err))
 	}

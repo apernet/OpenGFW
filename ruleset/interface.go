@@ -92,3 +92,8 @@ type Ruleset interface {
 	// It must be safe for concurrent use by multiple workers.
 	Match(StreamInfo) (MatchResult, error)
 }
+
+type BuiltinConfig struct {
+	GeoSiteFilename string
+	GeoIpFilename   string
+}

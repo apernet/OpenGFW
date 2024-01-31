@@ -14,6 +14,7 @@ import (
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
+	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 )
 
 // ExprRule is the external representation of an expression rule.
@@ -51,8 +52,9 @@ type compiledExprRule struct {
 var _ Ruleset = (*exprRuleset)(nil)
 
 type exprRuleset struct {
-	Rules []compiledExprRule
-	Ans   []analyzer.Analyzer
+	Rules      []compiledExprRule
+	Ans        []analyzer.Analyzer
+	GeoMatcher *geo.GeoMatcher
 }
 
 func (r *exprRuleset) Analyzers(info StreamInfo) []analyzer.Analyzer {
@@ -83,11 +85,15 @@ func (r *exprRuleset) Match(info StreamInfo) (MatchResult, error) {
 // CompileExprRules compiles a list of expression rules into a ruleset.
 // It returns an error if any of the rules are invalid, or if any of the analyzers
 // used by the rules are unknown (not provided in the analyzer list).
-func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier.Modifier) (Ruleset, error) {
+func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier.Modifier, config *BuiltinConfig) (Ruleset, error) {
 	var compiledRules []compiledExprRule
 	fullAnMap := analyzersToMap(ans)
 	fullModMap := modifiersToMap(mods)
 	depAnMap := make(map[string]analyzer.Analyzer)
+	geoMatcher, err := geo.NewGeoMatcher(config.GeoSiteFilename, config.GeoIpFilename)
+	if err != nil {
+		return nil, err
+	}
 	// Compile all rules and build a map of analyzers that are used by the rules.
 	for _, rule := range rules {
 		action, ok := actionStringToAction(rule.Action)
@@ -95,12 +101,28 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			return nil, fmt.Errorf("rule %q has invalid action %q", rule.Name, rule.Action)
 		}
 		visitor := &depVisitor{Analyzers: make(map[string]struct{})}
+		geoip := expr.Function(
+			"geoip",
+			func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
+			},
+			new(func(string, string) bool),
+		)
+		geosite := expr.Function(
+			"geosite",
+			func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
+			},
+			new(func(string, string) bool),
+		)
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
 				c.Strict = false
 				c.Expect = reflect.Bool
 				c.Visitors = append(c.Visitors, visitor)
 			},
+			geoip,
+			geosite,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("rule %q has invalid expression: %w", rule.Name, err)
@@ -111,6 +133,16 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 				return nil, fmt.Errorf("rule %q uses unknown analyzer %q", rule.Name, name)
 			}
 			depAnMap[name] = a
+		}
+		if visitor.UseGeoSite {
+			if err := geoMatcher.LoadGeoSite(); err != nil {
+				return nil, fmt.Errorf("rule %q failed to load geosite: %w", rule.Name, err)
+			}
+		}
+		if visitor.UseGeoIp {
+			if err := geoMatcher.LoadGeoIP(); err != nil {
+				return nil, fmt.Errorf("rule %q failed to load geoip: %w", rule.Name, err)
+			}
 		}
 		cr := compiledExprRule{
 			Name:      rule.Name,
@@ -137,8 +169,9 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		depAns = append(depAns, a)
 	}
 	return &exprRuleset{
-		Rules: compiledRules,
-		Ans:   depAns,
+		Rules:      compiledRules,
+		Ans:        depAns,
+		GeoMatcher: geoMatcher,
 	}, nil
 }
 
@@ -210,10 +243,20 @@ func modifiersToMap(mods []modifier.Modifier) map[string]modifier.Modifier {
 
 type depVisitor struct {
 	Analyzers map[string]struct{}
+
+	UseGeoSite bool
+	UseGeoIp   bool
 }
 
 func (v *depVisitor) Visit(node *ast.Node) {
 	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
-		v.Analyzers[idNode.Value] = struct{}{}
+		switch idNode.Value {
+		case "geosite":
+			v.UseGeoSite = true
+		case "geoip":
+			v.UseGeoIp = true
+		default:
+			v.Analyzers[idNode.Value] = struct{}{}
+		}
 	}
 }
