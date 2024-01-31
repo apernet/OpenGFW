@@ -103,6 +103,14 @@ workers:
 - name: block google socks
   action: block
   expr: string(socks?.req?.addr) endsWith "google.com" && socks?.req?.port == 80
+
+- name: block bilibili geosite
+  action: block
+  expr: geosite(string(tls?.req?.sni), "bilibili")
+
+- name: block CN geoip
+  action: block
+  expr: geoip(string(ip.dst), "cn")
 ```
 
 #### サポートされるアクション
