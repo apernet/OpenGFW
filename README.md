@@ -111,6 +111,14 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 - name: block wireguard by handshake response
   action: drop
   expr: wireguard?.handshake_response?.receiver_index_matched == true
+
+- name: block bilibili geosite
+  action: block
+  expr: geosite(string(tls?.req?.sni), "bilibili")
+
+- name: block CN geoip
+  action: block
+  expr: geoip(string(ip.dst), "cn")
 ```
 
 #### Supported actions
