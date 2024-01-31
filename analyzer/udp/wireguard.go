@@ -3,9 +3,10 @@ package udp
 import (
 	"container/ring"
 	"encoding/binary"
-	"github.com/apernet/OpenGFW/analyzer"
 	"slices"
 	"sync"
+
+	"github.com/apernet/OpenGFW/analyzer"
 )
 
 var (
