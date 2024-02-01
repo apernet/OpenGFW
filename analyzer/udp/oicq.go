@@ -73,7 +73,7 @@ func parseOICQMessage(data []byte) analyzer.PropMap {
 		"seq":     binary.BigEndian.Uint16(data[4:6]),
 		"number":  0,
 	}
-	data = data[4:]
+	data = data[6:]
 	if len(data) < 5 {
 		// Valid OICQ packet, but no Number field
 		return m
