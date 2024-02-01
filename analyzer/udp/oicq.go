@@ -8,7 +8,6 @@ import (
 const (
 	OICQPacketStartFlag = 0x02
 	OICQPacketEndFlag   = 0x03
-	OICQ4QQVersion      = 0x03905
 )
 
 // OICQAnalyzer OICQ is an IM Software protocol, Usually used by QQ
@@ -64,14 +63,12 @@ func parseOICQMessage(data []byte) analyzer.PropMap {
 	if data[0] != OICQPacketStartFlag { // OICQ Packet Start With 0x02
 		return nil
 	}
-	if binary.BigEndian.Uint16(data[1:3]) != OICQ4QQVersion { // OICQ Version 0x03905
-		return nil
-	}
 	if data[len(data)-1] != OICQPacketEndFlag { // OICQ Packet End With 0x03
 		return nil
 	}
-	data = data[3:]
+	data = data[1:]
 	m := analyzer.PropMap{
+		"version": binary.BigEndian.Uint16(data[0:2]),
 		"command": binary.BigEndian.Uint16(data[2:4]),
 		"seq":     binary.BigEndian.Uint16(data[4:6]),
 		"number":  0,
