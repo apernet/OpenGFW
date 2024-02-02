@@ -11,9 +11,7 @@ const (
 )
 
 // OICQAnalyzer OICQ is an IM Software protocol, Usually used by QQ
-var (
-	_ analyzer.UDPAnalyzer = (*OICQAnalyzer)(nil)
-)
+var _ analyzer.UDPAnalyzer = (*OICQAnalyzer)(nil)
 
 type OICQAnalyzer struct{}
 
@@ -50,35 +48,30 @@ func (s *OICQStream) Close(limited bool) *analyzer.PropUpdate {
 
 func parseOICQMessage(data []byte) analyzer.PropMap {
 	/* preInfo struct
+	SFlag: 0x02        EFlag: 0x03
 	+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-	|Flag |  Version  | Command   | Sequence  |         Number        |
+	|SFlag|  Version  | Command   | Sequence  |         Number        |
 	+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-	|          ................Data................(Dynamic Len)	  |
+	|          ................Data................(Dynamic Len)|EFlag|
 	+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 	*/
-	// At least 8 bytes
-	if len(data) < 7 {
+	// At least 12 bytes
+	if len(data) < 12 {
 		return nil
 	}
-	if data[0] != OICQPacketStartFlag { // OICQ Packet Start With 0x02
+	if data[0] != OICQPacketStartFlag || data[len(data)-1] != OICQPacketEndFlag { // OICQ Packet Start With 0x02
 		return nil
 	}
-	if data[len(data)-1] != OICQPacketEndFlag { // OICQ Packet End With 0x03
-		return nil
-	}
-	data = data[1:]
+	data = data[1:] // Remove Start Flag
 	m := analyzer.PropMap{
-		"version": binary.BigEndian.Uint16(data[0:2]),
-		"command": binary.BigEndian.Uint16(data[2:4]),
-		"seq":     binary.BigEndian.Uint16(data[4:6]),
-		"number":  0,
+		"version": binary.BigEndian.Uint16(data[0:2]),  // OICQ Version (2 bytes)
+		"command": binary.BigEndian.Uint16(data[2:4]),  // OICQ Command (2 bytes)
+		"seq":     binary.BigEndian.Uint16(data[4:6]),  // OICQ Sequence (2 bytes)
+		"number":  binary.BigEndian.Uint32(data[6:10]), // OICQ Number, Mostly QQ Number (4 bytes)
 	}
-	data = data[6:]
-	if len(data) < 5 {
-		// Valid OICQ packet, but no Number field
-		return m
+	if m["number"] == 0 || m["command"] == 0 {
+		return nil
 	}
-	m["number"] = binary.BigEndian.Uint32(data[0:4])
 	// Valid OICQ packet with Number field
 	return m
 }
