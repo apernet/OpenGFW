@@ -25,6 +25,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 - フローベースのマルチコア負荷分散
 - 接続オフロード
 - [expr](https://github.com/expr-lang/expr) に基づく強力なルールエンジン
+- ルールのホットリロード (`SIGHUP` を送信してリロード)
 - 柔軟なアナライザ＆モディファイアフレームワーク
 - 拡張可能な IO 実装(今のところ NFQueue のみ)
 - [WIP] ウェブ UI
