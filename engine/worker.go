@@ -127,7 +127,10 @@ func (w *worker) Run(ctx context.Context) {
 }
 
 func (w *worker) UpdateRuleset(r ruleset.Ruleset) error {
-	return w.tcpStreamFactory.UpdateRuleset(r)
+	if err := w.tcpStreamFactory.UpdateRuleset(r); err != nil {
+		return err
+	}
+	return w.udpStreamFactory.UpdateRuleset(r)
 }
 
 func (w *worker) handle(streamID uint32, p gopacket.Packet) (io.Verdict, []byte) {

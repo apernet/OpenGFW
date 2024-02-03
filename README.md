@@ -29,6 +29,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 - Flow-based multicore load balancing
 - Connection offloading
 - Powerful rule engine based on [expr](https://github.com/expr-lang/expr)
+- Hot-reloadable rules (send `SIGHUP` to reload)
 - Flexible analyzer & modifier framework
 - Extensible IO implementation (only NFQueue for now)
 - [WIP] Web UI

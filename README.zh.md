@@ -25,6 +25,7 @@ OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedi
 - 基于流的多核负载均衡
 - 连接 offloading
 - 基于 [expr](https://github.com/expr-lang/expr) 的强大规则引擎
+- 规则可以热重载 (发送 `SIGHUP` 信号)
 - 灵活的协议解析和修改框架
 - 可扩展的 IO 实现 (目前只有 NFQueue)
 - [开发中] Web UI
