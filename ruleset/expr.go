@@ -214,6 +214,8 @@ func isBuiltInAnalyzer(name string) bool {
 
 func actionStringToAction(action string) (Action, bool) {
 	switch strings.ToLower(action) {
+	case "log":
+		return ActionLog, true
 	case "allow":
 		return ActionAllow, true
 	case "block":

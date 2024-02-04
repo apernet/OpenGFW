@@ -124,6 +124,7 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 
 #### Supported actions
 
+- `log`: Log the connection (info level), continue processing future packets in the same flow.
 - `allow`: Allow the connection, no further processing.
 - `block`: Block the connection, no further processing.
 - `drop`: For UDP, drop the packet that triggered the rule, continue processing future packets in the same flow. For

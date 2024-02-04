@@ -221,11 +221,13 @@ func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
 			}
 		}
 		if action != ruleset.ActionMaybe {
-			var final bool
-			uc.Verdict, final = actionToUDPVerdict(action)
 			s.logger.UDPStreamAction(s.info, action, false)
-			if final {
-				s.closeActiveEntries()
+			if action != ruleset.ActionLog {
+				var final bool
+				uc.Verdict, final = actionToUDPVerdict(action)
+				if final {
+					s.closeActiveEntries()
+				}
 			}
 		}
 	}
@@ -280,7 +282,7 @@ func analyzersToUDPAnalyzers(ans []analyzer.Analyzer) []analyzer.UDPAnalyzer {
 
 func actionToUDPVerdict(a ruleset.Action) (v udpVerdict, final bool) {
 	switch a {
-	case ruleset.ActionMaybe:
+	case ruleset.ActionMaybe, ruleset.ActionLog:
 		return udpVerdictAccept, false
 	case ruleset.ActionAllow:
 		return udpVerdictAcceptStream, true

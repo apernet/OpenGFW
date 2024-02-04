@@ -152,10 +152,12 @@ func (s *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		}
 		action := result.Action
 		if action != ruleset.ActionMaybe && action != ruleset.ActionModify {
-			ctx.Verdict = actionToTCPVerdict(action)
 			s.logger.TCPStreamAction(s.info, action, false)
-			// Verdict issued, no need to process any more packets
-			s.closeActiveEntries()
+			if action != ruleset.ActionLog {
+				ctx.Verdict = actionToTCPVerdict(action)
+				// Verdict issued, no need to process any more packets
+				s.closeActiveEntries()
+			}
 		}
 	}
 	if len(s.activeEntries) == 0 && ctx.Verdict == tcpVerdictAccept {
@@ -216,7 +218,7 @@ func analyzersToTCPAnalyzers(ans []analyzer.Analyzer) []analyzer.TCPAnalyzer {
 
 func actionToTCPVerdict(a ruleset.Action) tcpVerdict {
 	switch a {
-	case ruleset.ActionMaybe, ruleset.ActionAllow, ruleset.ActionModify:
+	case ruleset.ActionMaybe, ruleset.ActionLog, ruleset.ActionAllow, ruleset.ActionModify:
 		return tcpVerdictAcceptStream
 	case ruleset.ActionBlock, ruleset.ActionDrop:
 		return tcpVerdictDropStream

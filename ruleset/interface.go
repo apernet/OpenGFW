@@ -14,6 +14,8 @@ const (
 	// ActionMaybe indicates that the ruleset hasn't seen anything worth blocking based on
 	// current information, but that may change if volatile fields change in the future.
 	ActionMaybe Action = iota
+	// ActionLog is similar to ActionMaybe, but logs the stream properties.
+	ActionLog
 	// ActionAllow indicates that the stream should be allowed regardless of future changes.
 	ActionAllow
 	// ActionBlock indicates that the stream should be blocked.
@@ -32,6 +34,8 @@ func (a Action) String() string {
 	switch a {
 	case ActionMaybe:
 		return "maybe"
+	case ActionLog:
+		return "log"
 	case ActionAllow:
 		return "allow"
 	case ActionBlock:
