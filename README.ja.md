@@ -17,8 +17,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
   - HTTP、TLS、DNS、SSH、SOCKS4/5、WireGuard、その他多数
-  - Shadowsocks の"完全に暗号化されたトラフィック"の検出、
-    など。 (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+  - Shadowsocks の「完全に暗号化されたトラフィック」の検出など (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - トロイの木馬キラー (https://github.com/XTLS/Trojan-killer) に基づくトロイの木馬 (プロキシプロトコル) 検出
   - [WIP] 機械学習に基づくトラフィック分類
 - IPv4 と IPv6 をフルサポート
@@ -27,7 +26,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 - [expr](https://github.com/expr-lang/expr) に基づく強力なルールエンジン
 - ルールのホットリロード (`SIGHUP` を送信してリロード)
 - 柔軟なアナライザ＆モディファイアフレームワーク
-- 拡張可能な IO 実装(今のところ NFQueue のみ)
+- 拡張可能な IO 実装 (今のところ NFQueue のみ)
 - [WIP] ウェブ UI
 
 ## ユースケース
@@ -70,8 +69,7 @@ workers:
 
 ### ルール例
 
-サポートされているすべてのプロトコルと、それぞれのプロトコルがどのようなフィールドを持っているかについてのドキュメントはまだ準備できておりません。
-一旦は、"analyzer "ディレクトリの下にあるコードを直接チェックする必要があります。
+[アナライザーのプロパティ](docs/Analyzers.md)
 
 式言語の構文については、[Expr 言語定義](https://expr-lang.org/docs/language-definition)を参照してください。
 
@@ -121,6 +119,6 @@ workers:
 #### サポートされるアクション
 
 - `allow`: 接続を許可し、それ以上の処理は行わない。
-- `block`: 接続をブロックし。
+- `block`: 接続をブロックし、それ以上の処理は行わない。
 - `drop`: UDP の場合、ルールのトリガーとなったパケットをドロップし、同じフローに含まれる以降のパケットの処理を継続する。TCP の場合は、`block` と同じ。
 - `modify`: UDP の場合、与えられた修飾子を使って、ルールをトリガしたパケットを修正し、同じフロー内の今後のパケットを処理し続ける。TCP の場合は、`allow` と同じ。
