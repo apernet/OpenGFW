@@ -35,9 +35,9 @@ table %s %s {
   chain FORWARD {
     type filter hook forward priority filter; policy accept;
 
-	ct mark $ACCEPT_CTMARK counter accept
-	ct mark $DROP_CTMARK counter drop
-	counter queue num $QUEUE_NUM bypass
+    ct mark $ACCEPT_CTMARK counter accept
+    ct mark $DROP_CTMARK counter drop
+    counter queue num $QUEUE_NUM bypass
   }
 }
 `, nfqueueConnMarkAccept, nfqueueConnMarkDrop, nfqueueNum, nftFamily, nftTable)
