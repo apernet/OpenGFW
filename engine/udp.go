@@ -65,7 +65,7 @@ func (f *udpStreamFactory) New(ipFlow, udpFlow gopacket.Flow, udp *layers.UDP, u
 		uc.Verdict = udpVerdictAcceptStream
 		f.Logger.UDPStreamAction(info, ruleset.ActionAllow, true)
 		// a udpStream with no activeEntries is a no-op
-		return &udpStream{}
+		return &udpStream{finalVerdict: udpVerdictAcceptStream}
 	}
 	// Create entries for each analyzer
 	entries := make([]*udpStreamEntry, 0, len(ans))
@@ -167,6 +167,7 @@ type udpStream struct {
 	ruleset       ruleset.Ruleset
 	activeEntries []*udpStreamEntry
 	doneEntries   []*udpStreamEntry
+	finalVerdict  udpVerdict
 }
 
 type udpStreamEntry struct {
@@ -177,8 +178,12 @@ type udpStreamEntry struct {
 }
 
 func (s *udpStream) Accept(udp *layers.UDP, rev bool, uc *udpContext) bool {
-	// Only accept packets if we still have active entries
-	return len(s.activeEntries) > 0
+	if len(s.activeEntries) > 0 {
+		return true
+	} else {
+		uc.Verdict = s.finalVerdict
+		return false
+	}
 }
 
 func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
@@ -221,16 +226,18 @@ func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
 			}
 		}
 		if action != ruleset.ActionMaybe {
-			var final bool
-			uc.Verdict, final = actionToUDPVerdict(action)
+			verdict, final := actionToUDPVerdict(action)
+			uc.Verdict = verdict
 			s.logger.UDPStreamAction(s.info, action, false)
 			if final {
+				s.finalVerdict = verdict
 				s.closeActiveEntries()
 			}
 		}
 	}
 	if len(s.activeEntries) == 0 && uc.Verdict == udpVerdictAccept {
 		// All entries are done but no verdict issued, accept stream
+		s.finalVerdict = udpVerdictAcceptStream
 		uc.Verdict = udpVerdictAcceptStream
 		s.logger.UDPStreamAction(s.info, ruleset.ActionAllow, true)
 	}
