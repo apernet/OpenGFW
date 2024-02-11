@@ -52,6 +52,16 @@ export OPENGFW_LOG_LEVEL=debug
 ./OpenGFW -c config.yaml rules.yaml
 ```
 
+#### OpenWrt
+
+OpenGFW は OpenWrt 23.05 で動作することがテストされています（他のバージョンも動作するはずですが、検証されていません）。
+
+依存関係をインストールしてください：
+
+```shell
+opkg install kmod-nft-queue kmod-nf-conntrack-netlink
+```
+
 ### 設定例
 
 ```yaml
