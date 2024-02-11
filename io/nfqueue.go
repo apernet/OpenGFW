@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
@@ -18,7 +21,49 @@ const (
 
 	nfqueueConnMarkAccept = 1001
 	nfqueueConnMarkDrop   = 1002
+
+	nftFamily = "inet"
+	nftTable  = "opengfw"
 )
+
+var nftRulesForward = fmt.Sprintf(`
+define ACCEPT_CTMARK=%d
+define DROP_CTMARK=%d
+define QUEUE_NUM=%d
+
+table %s %s {
+  chain FORWARD {
+    type filter hook forward priority filter; policy accept;
+
+    ct mark $ACCEPT_CTMARK counter accept
+    ct mark $DROP_CTMARK counter drop
+    counter queue num $QUEUE_NUM bypass
+  }
+}
+`, nfqueueConnMarkAccept, nfqueueConnMarkDrop, nfqueueNum, nftFamily, nftTable)
+
+var nftRulesLocal = fmt.Sprintf(`
+define ACCEPT_CTMARK=%d
+define DROP_CTMARK=%d
+define QUEUE_NUM=%d
+
+table %s %s {
+  chain INPUT {
+    type filter hook input priority filter; policy accept;
+
+    ct mark $ACCEPT_CTMARK counter accept
+    ct mark $DROP_CTMARK counter drop
+    counter queue num $QUEUE_NUM bypass
+  }
+  chain OUTPUT {
+    type filter hook output priority filter; policy accept;
+
+    ct mark $ACCEPT_CTMARK counter accept
+    ct mark $DROP_CTMARK counter drop
+    counter queue num $QUEUE_NUM bypass
+  }
+}
+`, nfqueueConnMarkAccept, nfqueueConnMarkDrop, nfqueueNum, nftFamily, nftTable)
 
 var iptRulesForward = []iptRule{
 	{"filter", "FORWARD", []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "ACCEPT"}},
@@ -41,11 +86,13 @@ var _ PacketIO = (*nfqueuePacketIO)(nil)
 var errNotNFQueuePacket = errors.New("not an NFQueue packet")
 
 type nfqueuePacketIO struct {
-	n      *nfqueue.Nfqueue
-	local  bool
-	ipt4   *iptables.IPTables
-	ipt6   *iptables.IPTables
-	iptSet bool // whether iptables rules are set
+	n     *nfqueue.Nfqueue
+	local bool
+	rSet  bool // whether the nftables/iptables rules have been set
+
+	// iptables not nil = use iptables instead of nftables
+	ipt4 *iptables.IPTables
+	ipt6 *iptables.IPTables
 }
 
 type NFQueuePacketIOConfig struct {
@@ -57,13 +104,18 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	if config.QueueSize == 0 {
 		config.QueueSize = nfqueueDefaultQueueSize
 	}
-	ipt4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
-	if err != nil {
-		return nil, err
-	}
-	ipt6, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
-	if err != nil {
-		return nil, err
+	var ipt4, ipt6 *iptables.IPTables
+	var err error
+	if nftCheck() != nil {
+		// We prefer nftables, but if it's not available, fall back to iptables
+		ipt4, err = iptables.NewWithProtocol(iptables.ProtocolIPv4)
+		if err != nil {
+			return nil, err
+		}
+		ipt6, err = iptables.NewWithProtocol(iptables.ProtocolIPv6)
+		if err != nil {
+			return nil, err
+		}
 	}
 	n, err := nfqueue.Open(&nfqueue.Config{
 		NfQueue:      nfqueueNum,
@@ -104,12 +156,16 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 	if err != nil {
 		return err
 	}
-	if !n.iptSet {
-		err = n.setupIpt(n.local, false)
+	if !n.rSet {
+		if n.ipt4 != nil {
+			err = n.setupIpt(n.local, false)
+		} else {
+			err = n.setupNft(n.local, false)
+		}
 		if err != nil {
 			return err
 		}
-		n.iptSet = true
+		n.rSet = true
 	}
 	return nil
 }
@@ -136,6 +192,39 @@ func (n *nfqueuePacketIO) SetVerdict(p Packet, v Verdict, newPacket []byte) erro
 	}
 }
 
+func (n *nfqueuePacketIO) Close() error {
+	if n.rSet {
+		if n.ipt4 != nil {
+			_ = n.setupIpt(n.local, true)
+		} else {
+			_ = n.setupNft(n.local, true)
+		}
+		n.rSet = false
+	}
+	return n.n.Close()
+}
+
+func (n *nfqueuePacketIO) setupNft(local, remove bool) error {
+	var rules string
+	if local {
+		rules = nftRulesLocal
+	} else {
+		rules = nftRulesForward
+	}
+	var err error
+	if remove {
+		err = nftDelete(nftFamily, nftTable)
+	} else {
+		// Delete first to make sure no leftover rules
+		_ = nftDelete(nftFamily, nftTable)
+		err = nftAdd(rules)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (n *nfqueuePacketIO) setupIpt(local, remove bool) error {
 	var rules []iptRule
 	if local {
@@ -153,16 +242,6 @@ func (n *nfqueuePacketIO) setupIpt(local, remove bool) error {
 		return err
 	}
 	return nil
-}
-
-func (n *nfqueuePacketIO) Close() error {
-	if n.iptSet {
-		err := n.setupIpt(n.local, true)
-		if err != nil {
-			return err
-		}
-	}
-	return n.n.Close()
 }
 
 var _ Packet = (*nfqueuePacket)(nil)
@@ -187,6 +266,25 @@ func okBoolToInt(ok bool) int {
 	} else {
 		return 1
 	}
+}
+
+func nftCheck() error {
+	_, err := exec.LookPath("nft")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func nftAdd(input string) error {
+	cmd := exec.Command("nft", "-f", "-")
+	cmd.Stdin = strings.NewReader(input)
+	return cmd.Run()
+}
+
+func nftDelete(family, table string) error {
+	cmd := exec.Command("nft", "delete", "table", family, table)
+	return cmd.Run()
 }
 
 type iptRule struct {
