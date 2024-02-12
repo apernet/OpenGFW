@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"github.com/apernet/OpenGFW/analyzer"
+	"github.com/apernet/OpenGFW/analyzer/internal"
 	"github.com/apernet/OpenGFW/analyzer/utils"
 )
 
@@ -142,74 +143,14 @@ func (s *tlsStream) parseClientHello() utils.LSMAction {
 		// Not a full client hello yet
 		return utils.LSMActionPause
 	}
-	s.reqUpdated = true
-	s.reqMap = make(analyzer.PropMap)
-	// Version, random & session ID length combined are within 35 bytes,
-	// so no need for bounds checking
-	s.reqMap["version"], _ = chBuf.GetUint16(false, true)
-	s.reqMap["random"], _ = chBuf.Get(32, true)
-	sessionIDLen, _ := chBuf.GetByte(true)
-	s.reqMap["session"], ok = chBuf.Get(int(sessionIDLen), true)
-	if !ok {
-		// Not enough data for session ID
+	m := internal.ParseTLSClientHello(chBuf)
+	if m == nil {
 		return utils.LSMActionCancel
-	}
-	cipherSuitesLen, ok := chBuf.GetUint16(false, true)
-	if !ok {
-		// Not enough data for cipher suites length
-		return utils.LSMActionCancel
-	}
-	if cipherSuitesLen%2 != 0 {
-		// Cipher suites are 2 bytes each, so must be even
-		return utils.LSMActionCancel
-	}
-	ciphers := make([]uint16, cipherSuitesLen/2)
-	for i := range ciphers {
-		ciphers[i], ok = chBuf.GetUint16(false, true)
-		if !ok {
-			return utils.LSMActionCancel
-		}
-	}
-	s.reqMap["ciphers"] = ciphers
-	compressionMethodsLen, ok := chBuf.GetByte(true)
-	if !ok {
-		// Not enough data for compression methods length
-		return utils.LSMActionCancel
-	}
-	// Compression methods are 1 byte each, we just put a byte slice here
-	s.reqMap["compression"], ok = chBuf.Get(int(compressionMethodsLen), true)
-	if !ok {
-		// Not enough data for compression methods
-		return utils.LSMActionCancel
-	}
-	extsLen, ok := chBuf.GetUint16(false, true)
-	if !ok {
-		// No extensions, I guess it's possible?
+	} else {
+		s.reqUpdated = true
+		s.reqMap = m
 		return utils.LSMActionNext
 	}
-	extBuf, ok := chBuf.GetSubBuffer(int(extsLen), true)
-	if !ok {
-		// Not enough data for extensions
-		return utils.LSMActionCancel
-	}
-	for extBuf.Len() > 0 {
-		extType, ok := extBuf.GetUint16(false, true)
-		if !ok {
-			// Not enough data for extension type
-			return utils.LSMActionCancel
-		}
-		extLen, ok := extBuf.GetUint16(false, true)
-		if !ok {
-			// Not enough data for extension length
-			return utils.LSMActionCancel
-		}
-		extDataBuf, ok := extBuf.GetSubBuffer(int(extLen), true)
-		if !ok || !s.handleExtensions(extType, extDataBuf, s.reqMap) {
-			// Not enough data for extension data, or invalid extension
-			return utils.LSMActionCancel
-		}
-	}
-	return utils.LSMActionNext
 }
 
 func (s *tlsStream) parseServerHello() utils.LSMAction {
@@ -218,131 +159,14 @@ func (s *tlsStream) parseServerHello() utils.LSMAction {
 		// Not a full server hello yet
 		return utils.LSMActionPause
 	}
-	s.respUpdated = true
-	s.respMap = make(analyzer.PropMap)
-	// Version, random & session ID length combined are within 35 bytes,
-	// so no need for bounds checking
-	s.respMap["version"], _ = shBuf.GetUint16(false, true)
-	s.respMap["random"], _ = shBuf.Get(32, true)
-	sessionIDLen, _ := shBuf.GetByte(true)
-	s.respMap["session"], ok = shBuf.Get(int(sessionIDLen), true)
-	if !ok {
-		// Not enough data for session ID
+	m := internal.ParseTLSServerHello(shBuf)
+	if m == nil {
 		return utils.LSMActionCancel
-	}
-	cipherSuite, ok := shBuf.GetUint16(false, true)
-	if !ok {
-		// Not enough data for cipher suite
-		return utils.LSMActionCancel
-	}
-	s.respMap["cipher"] = cipherSuite
-	compressionMethod, ok := shBuf.GetByte(true)
-	if !ok {
-		// Not enough data for compression method
-		return utils.LSMActionCancel
-	}
-	s.respMap["compression"] = compressionMethod
-	extsLen, ok := shBuf.GetUint16(false, true)
-	if !ok {
-		// No extensions, I guess it's possible?
+	} else {
+		s.respUpdated = true
+		s.respMap = m
 		return utils.LSMActionNext
 	}
-	extBuf, ok := shBuf.GetSubBuffer(int(extsLen), true)
-	if !ok {
-		// Not enough data for extensions
-		return utils.LSMActionCancel
-	}
-	for extBuf.Len() > 0 {
-		extType, ok := extBuf.GetUint16(false, true)
-		if !ok {
-			// Not enough data for extension type
-			return utils.LSMActionCancel
-		}
-		extLen, ok := extBuf.GetUint16(false, true)
-		if !ok {
-			// Not enough data for extension length
-			return utils.LSMActionCancel
-		}
-		extDataBuf, ok := extBuf.GetSubBuffer(int(extLen), true)
-		if !ok || !s.handleExtensions(extType, extDataBuf, s.respMap) {
-			// Not enough data for extension data, or invalid extension
-			return utils.LSMActionCancel
-		}
-	}
-	return utils.LSMActionNext
-}
-
-func (s *tlsStream) handleExtensions(extType uint16, extDataBuf *utils.ByteBuffer, m analyzer.PropMap) bool {
-	switch extType {
-	case 0x0000: // SNI
-		ok := extDataBuf.Skip(2) // Ignore list length, we only care about the first entry for now
-		if !ok {
-			// Not enough data for list length
-			return false
-		}
-		sniType, ok := extDataBuf.GetByte(true)
-		if !ok || sniType != 0 {
-			// Not enough data for SNI type, or not hostname
-			return false
-		}
-		sniLen, ok := extDataBuf.GetUint16(false, true)
-		if !ok {
-			// Not enough data for SNI length
-			return false
-		}
-		m["sni"], ok = extDataBuf.GetString(int(sniLen), true)
-		if !ok {
-			// Not enough data for SNI
-			return false
-		}
-	case 0x0010: // ALPN
-		ok := extDataBuf.Skip(2) // Ignore list length, as we read until the end
-		if !ok {
-			// Not enough data for list length
-			return false
-		}
-		var alpnList []string
-		for extDataBuf.Len() > 0 {
-			alpnLen, ok := extDataBuf.GetByte(true)
-			if !ok {
-				// Not enough data for ALPN length
-				return false
-			}
-			alpn, ok := extDataBuf.GetString(int(alpnLen), true)
-			if !ok {
-				// Not enough data for ALPN
-				return false
-			}
-			alpnList = append(alpnList, alpn)
-		}
-		m["alpn"] = alpnList
-	case 0x002b: // Supported Versions
-		if extDataBuf.Len() == 2 {
-			// Server only selects one version
-			m["supported_versions"], _ = extDataBuf.GetUint16(false, true)
-		} else {
-			// Client sends a list of versions
-			ok := extDataBuf.Skip(1) // Ignore list length, as we read until the end
-			if !ok {
-				// Not enough data for list length
-				return false
-			}
-			var versions []uint16
-			for extDataBuf.Len() > 0 {
-				ver, ok := extDataBuf.GetUint16(false, true)
-				if !ok {
-					// Not enough data for version
-					return false
-				}
-				versions = append(versions, ver)
-			}
-			m["supported_versions"] = versions
-		}
-	case 0xfe0d: // ECH
-		// We can't parse ECH for now, just set a flag
-		m["ech"] = true
-	}
-	return true
 }
 
 func (s *tlsStream) Close(limited bool) *analyzer.PropUpdate {
