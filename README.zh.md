@@ -76,6 +76,11 @@ workers:
   tcpMaxBufferedPagesTotal: 4096
   tcpMaxBufferedPagesPerConn: 64
   udpMaxStreams: 4096
+
+# 指定的geoip/geosite档案路径
+geo:
+  geoip: geoip.dat
+  geosite: geosite.dat
 ```
 
 ### 样例规则
