@@ -75,6 +75,11 @@ workers:
   tcpMaxBufferedPagesTotal: 4096
   tcpMaxBufferedPagesPerConn: 64
   udpMaxStreams: 4096
+
+# 特定のローカルGeoIP / GeoSiteデータベースファイルを読み込むためのパス。
+geo:
+  geoip: geoip.dat
+  geosite: geosite.dat
 ```
 
 ### ルール例
