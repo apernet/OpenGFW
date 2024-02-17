@@ -114,8 +114,8 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		if err != nil {
 			return nil, fmt.Errorf("rule %q has invalid expression: %w", rule.Name, err)
 		}
-		if patcher.err != nil {
-			return nil, fmt.Errorf("rule %q failed to patch expression: %w", rule.Name, patcher.err)
+		if patcher.Err != nil {
+			return nil, fmt.Errorf("rule %q failed to patch expression: %w", rule.Name, patcher.Err)
 		}
 		for name := range visitor.Identifiers {
 			if isBuiltInAnalyzer(name) {
@@ -133,6 +133,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 					return nil, fmt.Errorf("rule %q failed to load geosite: %w", rule.Name, err)
 				}
 			case "cidr":
+				// No initialization needed for CIDR.
 			default:
 				a, ok := fullAnMap[name]
 				if !ok {
@@ -261,6 +262,8 @@ func modifiersToMap(mods []modifier.Modifier) map[string]modifier.Modifier {
 	return modMap
 }
 
+// idVisitor is a visitor that collects all identifiers in an expression.
+// This is for determining which analyzers are used by the expression.
 type idVisitor struct {
 	Identifiers map[string]bool
 }
@@ -271,8 +274,10 @@ func (v *idVisitor) Visit(node *ast.Node) {
 	}
 }
 
+// idPatcher patches the AST during expr compilation, replacing certain values with
+// their internal representations for better runtime performance.
 type idPatcher struct {
-	err error
+	Err error
 }
 
 func (p *idPatcher) Visit(node *ast.Node) {
@@ -287,12 +292,10 @@ func (p *idPatcher) Visit(node *ast.Node) {
 			}
 			cidr, err := builtins.CompileCIDR(cidrStringNode.Value)
 			if err != nil {
-				p.err = err
+				p.Err = err
 				return
 			}
 			callNode.Arguments[1] = &ast.ConstantNode{Value: cidr}
-		default:
 		}
-	default:
 	}
 }
