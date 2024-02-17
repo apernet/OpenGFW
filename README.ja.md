@@ -75,6 +75,12 @@ workers:
   tcpMaxBufferedPagesTotal: 4096
   tcpMaxBufferedPagesPerConn: 64
   udpMaxStreams: 4096
+
+# 特定のローカルGeoIP / GeoSiteデータベースファイルを読み込むためのパス。
+# 設定されていない場合は、https://github.com/LoyalSoldier/v2ray-rules-dat から自動的にダウンロードされます。
+# geo:
+#   geoip: geoip.dat
+#   geosite: geosite.dat
 ```
 
 ### ルール例
