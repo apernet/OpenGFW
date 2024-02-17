@@ -2,6 +2,7 @@ package ruleset
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
+	"github.com/apernet/OpenGFW/ruleset/builtins"
 	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 )
 
@@ -100,16 +102,20 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			return nil, fmt.Errorf("rule %q has invalid action %q", rule.Name, rule.Action)
 		}
 		visitor := &idVisitor{Identifiers: make(map[string]bool)}
+		patcher := &idPatcher{}
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
 				c.Strict = false
 				c.Expect = reflect.Bool
-				c.Visitors = append(c.Visitors, visitor)
+				c.Visitors = append(c.Visitors, visitor, patcher)
 				registerBuiltinFunctions(c.Functions, geoMatcher)
 			},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("rule %q has invalid expression: %w", rule.Name, err)
+		}
+		if patcher.err != nil {
+			return nil, fmt.Errorf("rule %q failed to patch expression: %w", rule.Name, patcher.err)
 		}
 		for name := range visitor.Identifiers {
 			if isBuiltInAnalyzer(name) {
@@ -126,6 +132,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 				if err := geoMatcher.LoadGeoSite(); err != nil {
 					return nil, fmt.Errorf("rule %q failed to load geosite: %w", rule.Name, err)
 				}
+			case "cidr":
 			default:
 				a, ok := fullAnMap[name]
 				if !ok {
@@ -178,6 +185,13 @@ func registerBuiltinFunctions(funcMap map[string]*ast.Function, geoMatcher *geo.
 			return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
 		},
 		Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoSite)},
+	}
+	funcMap["cidr"] = &ast.Function{
+		Name: "cidr",
+		Func: func(params ...any) (any, error) {
+			return builtins.MatchCIDR(params[0].(string), params[1].(*net.IPNet)), nil
+		},
+		Types: []reflect.Type{reflect.TypeOf((func(string, string) bool)(nil)), reflect.TypeOf(builtins.MatchCIDR)},
 	}
 }
 
@@ -254,5 +268,31 @@ type idVisitor struct {
 func (v *idVisitor) Visit(node *ast.Node) {
 	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
 		v.Identifiers[idNode.Value] = true
+	}
+}
+
+type idPatcher struct {
+	err error
+}
+
+func (p *idPatcher) Visit(node *ast.Node) {
+	switch (*node).(type) {
+	case *ast.CallNode:
+		callNode := (*node).(*ast.CallNode)
+		switch callNode.Func.Name {
+		case "cidr":
+			cidrStringNode, ok := callNode.Arguments[1].(*ast.StringNode)
+			if !ok {
+				return
+			}
+			cidr, err := builtins.CompileCIDR(cidrStringNode.Value)
+			if err != nil {
+				p.err = err
+				return
+			}
+			callNode.Arguments[1] = &ast.ConstantNode{Value: cidr}
+		default:
+		}
+	default:
 	}
 }
