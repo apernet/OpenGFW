@@ -82,9 +82,10 @@ workers:
   udpMaxStreams: 4096
 
 # The path to load specific local geoip/geosite db files.
-geo:
-  geoip: geoip.dat
-  geosite: geosite.dat
+# If not set, they will be automatically downloaded from https://github.com/Loyalsoldier/v2ray-rules-dat
+# geo:
+#   geoip: geoip.dat
+#   geosite: geosite.dat
 ```
 
 ### Example rules

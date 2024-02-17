@@ -77,10 +77,11 @@ workers:
   tcpMaxBufferedPagesPerConn: 64
   udpMaxStreams: 4096
 
-# 指定的geoip/geosite档案路径
-geo:
-  geoip: geoip.dat
-  geosite: geosite.dat
+# 指定的 geoip/geosite 档案路径
+# 如果未设置，将自动从 https://github.com/Loyalsoldier/v2ray-rules-dat 下载
+# geo:
+#   geoip: geoip.dat
+#   geosite: geosite.dat
 ```
 
 ### 样例规则
