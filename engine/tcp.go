@@ -60,13 +60,6 @@ func (f *tcpStreamFactory) New(ipFlow, tcpFlow gopacket.Flow, tcp *layers.TCP, a
 	rs := f.Ruleset
 	f.RulesetMutex.RUnlock()
 	ans := analyzersToTCPAnalyzers(rs.Analyzers(info))
-	if len(ans) == 0 {
-		ctx := ac.(*tcpContext)
-		ctx.Verdict = tcpVerdictAcceptStream
-		f.Logger.TCPStreamAction(info, ruleset.ActionAllow, true)
-		// a tcpStream with no activeEntries is a no-op
-		return &tcpStream{finalVerdict: tcpVerdictAcceptStream}
-	}
 	// Create entries for each analyzer
 	entries := make([]*tcpStreamEntry, 0, len(ans))
 	for _, a := range ans {
@@ -109,7 +102,7 @@ type tcpStream struct {
 	ruleset       ruleset.Ruleset
 	activeEntries []*tcpStreamEntry
 	doneEntries   []*tcpStreamEntry
-	finalVerdict  tcpVerdict
+	lastVerdict   tcpVerdict
 }
 
 type tcpStreamEntry struct {
@@ -120,11 +113,14 @@ type tcpStreamEntry struct {
 }
 
 func (s *tcpStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
-	if len(s.activeEntries) > 0 {
+	if len(s.activeEntries) > 0 || s.virgin {
+		// Make sure every stream matches against the ruleset at least once,
+		// even if there are no activeEntries, as the ruleset may have built-in
+		// properties that need to be matched.
 		return true
 	} else {
 		ctx := ac.(*tcpContext)
-		ctx.Verdict = s.finalVerdict
+		ctx.Verdict = s.lastVerdict
 		return false
 	}
 }
@@ -159,7 +155,7 @@ func (s *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		action := result.Action
 		if action != ruleset.ActionMaybe && action != ruleset.ActionModify {
 			verdict := actionToTCPVerdict(action)
-			s.finalVerdict = verdict
+			s.lastVerdict = verdict
 			ctx.Verdict = verdict
 			s.logger.TCPStreamAction(s.info, action, false)
 			// Verdict issued, no need to process any more packets
@@ -168,7 +164,7 @@ func (s *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 	}
 	if len(s.activeEntries) == 0 && ctx.Verdict == tcpVerdictAccept {
 		// All entries are done but no verdict issued, accept stream
-		s.finalVerdict = tcpVerdictAcceptStream
+		s.lastVerdict = tcpVerdictAcceptStream
 		ctx.Verdict = tcpVerdictAcceptStream
 		s.logger.TCPStreamAction(s.info, ruleset.ActionAllow, true)
 	}
