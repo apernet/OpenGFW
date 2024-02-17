@@ -136,6 +136,10 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 - name: block CN geoip
   action: block
   expr: geoip(string(ip.dst), "cn")
+
+- name: block cidr
+  action: block
+  expr: cidr(string(ip.dst), "192.168.0.0/16")
 ```
 
 #### Supported actions
