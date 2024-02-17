@@ -76,6 +76,12 @@ workers:
   tcpMaxBufferedPagesTotal: 4096
   tcpMaxBufferedPagesPerConn: 64
   udpMaxStreams: 4096
+
+# 指定的 geoip/geosite 档案路径
+# 如果未设置，将自动从 https://github.com/Loyalsoldier/v2ray-rules-dat 下载
+# geo:
+#   geoip: geoip.dat
+#   geosite: geosite.dat
 ```
 
 ### 样例规则
@@ -129,6 +135,10 @@ workers:
 - name: block CN geoip
   action: block
   expr: geoip(string(ip.dst), "cn")
+
+- name: block cidr
+  action: block
+  expr: cidr(string(ip.dst), "192.168.0.0/16")
 ```
 
 #### 支持的 action
