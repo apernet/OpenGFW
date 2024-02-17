@@ -179,51 +179,17 @@ Example for blocking all SSH connections:
 {
   "tls": {
     "req": {
-      "alpn": [
-        "h2",
-        "http/1.1"
-      ],
+      "alpn": ["h2", "http/1.1"],
       "ciphers": [
-        4866,
-        4867,
-        4865,
-        49196,
-        49200,
-        159,
-        52393,
-        52392,
-        52394,
-        49195,
-        49199,
-        158,
-        49188,
-        49192,
-        107,
-        49187,
-        49191,
-        103,
-        49162,
-        49172,
-        57,
-        49161,
-        49171,
-        51,
-        157,
-        156,
-        61,
-        60,
-        53,
-        47,
-        255
+        4866, 4867, 4865, 49196, 49200, 159, 52393, 52392, 52394, 49195, 49199,
+        158, 49188, 49192, 107, 49187, 49191, 103, 49162, 49172, 57, 49161,
+        49171, 51, 157, 156, 61, 60, 53, 47, 255
       ],
       "compression": "AA==",
       "random": "UqfPi+EmtMgusILrKcELvVWwpOdPSM/My09nPXl84dg=",
       "session": "jCTrpAzHpwrfuYdYx4FEjZwbcQxCuZ52HGIoOcbw1vA=",
       "sni": "ipinfo.io",
-      "supported_versions": [
-        772,
-        771
-      ],
+      "supported_versions": [772, 771],
       "version": 771,
       "ech": true
     },
@@ -245,6 +211,37 @@ Example for blocking TLS connections to `ipinfo.io`:
 - name: Block ipinfo.io TLS
   action: block
   expr: tls != nil && tls.req != nil && tls.req.sni == "ipinfo.io"
+```
+
+## QUIC
+
+QUIC analyzer produces the same result format as TLS analyzer, but currently only supports "req" direction (client
+hello), not "resp" (server hello).
+
+```json
+{
+  "quic": {
+    "req": {
+      "alpn": ["h3"],
+      "ciphers": [4865, 4866, 4867],
+      "compression": "AA==",
+      "ech": true,
+      "random": "FUYLceFReLJl9dRQ0HAus7fi2ZGuKIAApF4keeUqg00=",
+      "session": "",
+      "sni": "quic.rocks",
+      "supported_versions": [772],
+      "version": 771
+    }
+  }
+}
+```
+
+Example for blocking QUIC connections to `quic.rocks`:
+
+```yaml
+- name: Block quic.rocks QUIC
+  action: block
+  expr: quic != nil && quic.req != nil && quic.req.sni == "quic.rocks"
 ```
 
 ## Trojan (proxy protocol)
@@ -273,13 +270,13 @@ Example for blocking Trojan connections:
 
 SOCKS4:
 
-```json5
+```json
 {
   "socks": {
     "version": 4,
     "req": {
       "cmd": 1,
-      "addr_type": 1,     // same as socks5
+      "addr_type": 1, // same as socks5
       "addr": "1.1.1.1",
       // for socks4a
       // "addr_type": 3,
@@ -290,7 +287,7 @@ SOCKS4:
       }
     },
     "resp": {
-      "rep": 90,          // 0x5A(90) granted
+      "rep": 90, // 0x5A(90) granted
       "addr_type": 1,
       "addr": "1.1.1.1",
       "port": 443
@@ -301,26 +298,26 @@ SOCKS4:
 
 SOCKS5 without auth:
 
-```json5
+```json
 {
   "socks": {
     "version": 5,
     "req": {
-      "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
-      "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "cmd": 1, // 0x01: connect, 0x02: bind, 0x03: udp
+      "addr_type": 3, // 0x01: ipv4, 0x03: domain, 0x04: ipv6
       "addr": "google.com",
       "port": 80,
       "auth": {
-        "method": 0     // 0x00: no auth, 0x02: username/password
+        "method": 0 // 0x00: no auth, 0x02: username/password
       }
     },
     "resp": {
-      "rep": 0,         // 0x00: success
-      "addr_type": 1,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "rep": 0, // 0x00: success
+      "addr_type": 1, // 0x01: ipv4, 0x03: domain, 0x04: ipv6
       "addr": "198.18.1.31",
       "port": 80,
       "auth": {
-        "method": 0     // 0x00: no auth, 0x02: username/password
+        "method": 0 // 0x00: no auth, 0x02: username/password
       }
     }
   }
@@ -329,29 +326,29 @@ SOCKS5 without auth:
 
 SOCKS5 with auth:
 
-```json5
+```json
 {
   "socks": {
     "version": 5,
     "req": {
-      "cmd": 1,         // 0x01: connect, 0x02: bind, 0x03: udp
-      "addr_type": 3,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "cmd": 1, // 0x01: connect, 0x02: bind, 0x03: udp
+      "addr_type": 3, // 0x01: ipv4, 0x03: domain, 0x04: ipv6
       "addr": "google.com",
       "port": 80,
       "auth": {
-        "method": 2,    // 0x00: no auth, 0x02: username/password
+        "method": 2, // 0x00: no auth, 0x02: username/password
         "username": "user",
         "password": "pass"
       }
     },
     "resp": {
-      "rep": 0,         // 0x00: success
-      "addr_type": 1,   // 0x01: ipv4, 0x03: domain, 0x04: ipv6
+      "rep": 0, // 0x00: success
+      "addr_type": 1, // 0x01: ipv4, 0x03: domain, 0x04: ipv6
       "addr": "198.18.1.31",
       "port": 80,
       "auth": {
-        "method": 2,    // 0x00: no auth, 0x02: username/password
-        "status": 0     // 0x00: success, 0x01: failure
+        "method": 2, // 0x00: no auth, 0x02: username/password
+        "status": 0 // 0x00: success, 0x01: failure
       }
     }
   }
@@ -370,10 +367,9 @@ Example for blocking connections to `google.com:80` and user `foobar`:
   expr: socks?.req?.auth?.method == 2 && socks?.req?.auth?.username == "foobar"
 ```
 
-
 ## WireGuard
 
-```json5
+```json
 {
   "wireguard": {
     "message_type": 1, // 0x1: handshake_initiation, 0x2: handshake_response, 0x3: packet_cookie_reply, 0x4: packet_data
