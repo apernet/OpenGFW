@@ -4,36 +4,45 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=23.11";
     gomod2nix.url = "github:nix-community/gomod2nix";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
     gomod2nix,
-  }: let
-    system = "x86_64-linux";
-    pkgs = import nixpkgs {
-      inherit system;
-      overlays = [
-        gomod2nix.overlays.default
-      ];
-    };
-  in {
-    packages.${system} = {
-      opengfw = pkgs.callPackage ./nix/package.nix {};
-      default = self.packages.${system}.opengfw;
-    };
+    flake-utils,
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [
+            gomod2nix.overlays.default
+          ];
+        };
+      in {
+        packages = rec {
+          opengfw = pkgs.callPackage ./nix/package.nix {};
+          default = opengfw;
+        };
 
-    devShells.${system}.default = pkgs.mkShell {
-      OPENGFW_LOG_LEVEL = "debug";
-      buildInputs = let
-        goEnv = pkgs.mkGoEnv { pwd = ./.; };
-      in [
-        goEnv
-        pkgs.gomod2nix
-      ];
-    };
+        devShells.default = pkgs.mkShell {
+          OPENGFW_LOG_LEVEL = "debug";
+          buildInputs = let
+            goEnv = pkgs.mkGoEnv {pwd = ./.;};
+          in [
+            goEnv
+            pkgs.gomod2nix
+          ];
+        };
+      }
+    )
+    // {
+      nixosModules.opengfw = import ./nix/module.nix self.packages;
 
-    nixosModules.opengfw = import ./nix/module.nix self.packages;
-  };
+      hydraJobs = {
+        inherit (self) packages;
+      };
+    };
 }

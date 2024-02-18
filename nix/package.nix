@@ -27,6 +27,6 @@ pkgs.buildGoApplication rec {
     homepage = "https://github.com/apernet/OpenGFW";
     license = licenses.mpl20;
     mainProgram = "OpenGFW";
-    platforms = [ "x86_64-linux" ];
+    platforms = [ "x86_64-linux" "aarch64-linux" ];
   };
 }
