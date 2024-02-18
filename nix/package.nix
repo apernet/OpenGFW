@@ -3,7 +3,7 @@
   pkgs,
 }:
 pkgs.buildGoApplication rec {
-  pname = "OpenGFW";
+  pname = "opengfw";
   version = "0.1.1";
   pwd = ../.;
   src = ../.;

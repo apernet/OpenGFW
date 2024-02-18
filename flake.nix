@@ -17,6 +17,7 @@
       system: let
         pkgs = import nixpkgs {
           inherit system;
+          config.allowUnsupportedSystem = true;
           overlays = [
             gomod2nix.overlays.default
           ];
