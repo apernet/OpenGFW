@@ -5,6 +5,8 @@
 [1]: https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg
 [2]: LICENSE
 
+Telegram グループ: https://t.me/OpGFW
+
 OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) の柔軟で使いやすいオープンソース実装であり、多くの点で本物より強力です。これは家庭用ルーターでできるサイバー主権です。
 
 > [!CAUTION]
