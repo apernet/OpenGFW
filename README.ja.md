@@ -16,7 +16,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 ## 特徴
 
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
-  - HTTP、TLS、DNS、SSH、SOCKS4/5、WireGuard、その他多数
+  - HTTP、TLS、QUIC、DNS、SSH、SOCKS4/5、WireGuard、その他多数
   - Shadowsocks の「完全に暗号化されたトラフィック」の検出など (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
   - トロイの木馬キラー (https://github.com/XTLS/Trojan-killer) に基づくトロイの木馬 (プロキシプロトコル) 検出
   - [WIP] 機械学習に基づくトラフィック分類
@@ -97,6 +97,10 @@ workers:
 - name: block v2ex https
   action: block
   expr: string(tls?.req?.sni) endsWith "v2ex.com"
+
+- name: block v2ex quic
+  action: block
+  expr: string(quic?.req?.sni) endsWith "v2ex.com"
 
 - name: block shadowsocks
   action: block
