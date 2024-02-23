@@ -117,7 +117,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			}
 			action = &a
 		}
-		visitor := &idVisitor{Identifiers: make(map[string]bool)}
+		visitor := &idVisitor{Variables: make(map[string]bool), Identifiers: make(map[string]bool)}
 		patcher := &idPatcher{}
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
@@ -134,7 +134,8 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			return nil, fmt.Errorf("rule %q failed to patch expression: %w", rule.Name, patcher.Err)
 		}
 		for name := range visitor.Identifiers {
-			if isBuiltInAnalyzer(name) {
+			// Skip built-in analyzers & user-defined variables
+			if isBuiltInAnalyzer(name) || visitor.Variables[name] {
 				continue
 			}
 			// Check if it's one of the built-in functions, and if so,
@@ -283,11 +284,14 @@ func modifiersToMap(mods []modifier.Modifier) map[string]modifier.Modifier {
 // idVisitor is a visitor that collects all identifiers in an expression.
 // This is for determining which analyzers are used by the expression.
 type idVisitor struct {
+	Variables   map[string]bool
 	Identifiers map[string]bool
 }
 
 func (v *idVisitor) Visit(node *ast.Node) {
-	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
+	if varNode, ok := (*node).(*ast.VariableDeclaratorNode); ok {
+		v.Variables[varNode.Name] = true
+	} else if idNode, ok := (*node).(*ast.IdentifierNode); ok {
 		v.Identifiers[idNode.Value] = true
 	}
 }

@@ -92,6 +92,11 @@ workers:
 式言語の構文については、[Expr 言語定義](https://expr-lang.org/docs/language-definition)を参照してください。
 
 ```yaml
+# ルールは、"action" または "log" の少なくとも一方が設定されていなければなりません。
+- name: log horny people
+  log: true
+  expr: let sni = string(tls?.req?.sni); sni contains "porn" || sni contains "hentai"
+
 - name: block v2ex http
   action: block
   expr: string(http?.req?.headers?.host) endsWith "v2ex.com"
@@ -104,8 +109,9 @@ workers:
   action: block
   expr: string(quic?.req?.sni) endsWith "v2ex.com"
 
-- name: block shadowsocks
+- name: block and log shadowsocks
   action: block
+  log: true
   expr: fet != nil && fet.yes
 
 - name: block trojan
