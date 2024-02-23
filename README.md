@@ -8,10 +8,9 @@
 **[中文文档](README.zh.md)**
 **[日本語ドキュメント](README.ja.md)**
 
-Telegram group: https://t.me/OpGFW
+OpenGFW is your very own DIY [Great Firewall of China](https://en.wikipedia.org/wiki/Great_Firewall), available as a flexible, easy-to-use open source project on Linux! Why let the powers that be have all the fun? It's time to give power to the people and democratize censorship. With OpenGFW, you can bring the thrill of cyber-sovereignty right into your home router. Install today and start filtering like a pro - you too can play Big Brother.
 
-OpenGFW is a flexible, easy-to-use, open source implementation of [GFW](https://en.wikipedia.org/wiki/Great_Firewall) on
-Linux that's in many ways more powerful than the real thing. It's cyber sovereignty you can have on a home router.
+Telegram group: https://t.me/OpGFW
 
 > [!CAUTION]
 > This project is still in very early stages of development. Use at your own risk.
@@ -43,6 +42,7 @@ Linux that's in many ways more powerful than the real thing. It's cyber sovereig
 - Malware protection
 - Abuse prevention for VPN/proxy services
 - Traffic analysis (log only mode)
+- Help you fulfill your dictatorial ambitions
 
 ## Usage
 

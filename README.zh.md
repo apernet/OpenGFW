@@ -5,10 +5,9 @@
 [1]: https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg
 [2]: LICENSE
 
-Telegram 群组： https://t.me/OpGFW
+OpenGFW 是一个 Linux 上灵活、易用、开源的 DIY [GFW](https://zh.wikipedia.org/wiki/%E9%98%B2%E7%81%AB%E9%95%BF%E5%9F%8E) 实现，并且在许多方面比真正的 GFW 更强大。为何让那些掌权者独享乐趣？是时候把权力归还给人民，人人有墙建了。立即安装可以部署在家用路由器上的网络主权 - 你也能是老大哥。
 
-OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedia.org/wiki/%E9%98%B2%E7%81%AB%E9%95%BF%E5%9F%8E)
-实现，并且在许多方面比真正的 GFW 更强大。可以部署在家用路由器上的网络主权。
+Telegram 群组： https://t.me/OpGFW
 
 > [!CAUTION]
 > 本项目仍处于早期开发阶段。测试时自行承担风险。
@@ -39,6 +38,7 @@ OpenGFW 是一个 Linux 上灵活、易用、开源的 [GFW](https://zh.wikipedi
 - 恶意软件防护
 - VPN/代理服务滥用防护
 - 流量分析 (纯日志模式)
+- 助你实现你的独裁野心
 
 ## 使用
 

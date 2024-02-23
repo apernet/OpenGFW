@@ -5,9 +5,9 @@
 [1]: https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg
 [2]: LICENSE
 
-Telegram グループ: https://t.me/OpGFW
+OpenGFW は、柔軟で使いやすい Linux 上のオープンソースプロジェクトとして利用可能な、あなただけの DIY[中国のグレートファイアウォール](https://en.wikipedia.org/wiki/Great_Firewall)です！なぜ権力者だけがすべての楽しみを持つのでしょうか？権力を人々に与え、検閲を民主化する時です。OpenGFW を使えば、サイバー主権のスリルをあなたの家庭用ルーターに直接持ち込むことができます。今日インストールして、プロのようにフィルタリングを始めましょう - あなたもビッグブラザーを演じることができます。
 
-OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) の柔軟で使いやすいオープンソース実装であり、多くの点で本物より強力です。これは家庭用ルーターでできるサイバー主権です。
+Telegram グループ: https://t.me/OpGFW
 
 > [!CAUTION]
 > このプロジェクトはまだ開発の初期段階です。使用は自己責任でお願いします。
@@ -38,6 +38,7 @@ OpenGFW は、Linux 上の [GFW](https://en.wikipedia.org/wiki/Great_Firewall) �
 - マルウェア対策
 - VPN/プロキシサービスの不正利用防止
 - トラフィック分析（ログのみモード）
+- 独裁的な野心を実現するのを助ける
 
 ## 使用方法
 
