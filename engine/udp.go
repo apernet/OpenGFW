@@ -201,10 +201,7 @@ func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
 		s.virgin = false
 		s.logger.UDPStreamPropUpdate(s.info, false)
 		// Match properties against ruleset
-		result, err := s.ruleset.Match(s.info)
-		if err != nil {
-			s.logger.MatchError(s.info, err)
-		}
+		result := s.ruleset.Match(s.info)
 		action := result.Action
 		if action == ruleset.ActionModify {
 			// Call the modifier instance
@@ -214,6 +211,7 @@ func (s *udpStream) Feed(udp *layers.UDP, rev bool, uc *udpContext) {
 				s.logger.ModifyError(s.info, errInvalidModifier)
 				action = ruleset.ActionMaybe
 			} else {
+				var err error
 				uc.Packet, err = udpMI.Process(udp.Payload)
 				if err != nil {
 					// Modifier error, fallback to maybe

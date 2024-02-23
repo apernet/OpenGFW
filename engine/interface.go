@@ -41,7 +41,6 @@ type Logger interface {
 	UDPStreamPropUpdate(info ruleset.StreamInfo, close bool)
 	UDPStreamAction(info ruleset.StreamInfo, action ruleset.Action, noMatch bool)
 
-	MatchError(info ruleset.StreamInfo, err error)
 	ModifyError(info ruleset.StreamInfo, err error)
 
 	AnalyzerDebugf(streamID int64, name string, format string, args ...interface{})
