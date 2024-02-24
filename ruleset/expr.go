@@ -23,6 +23,7 @@ import (
 type ExprRule struct {
 	Name     string        `yaml:"name"`
 	Action   string        `yaml:"action"`
+	Log      bool          `yaml:"log"`
 	Modifier ModifierEntry `yaml:"modifier"`
 	Expr     string        `yaml:"expr"`
 }
@@ -45,7 +46,8 @@ func ExprRulesFromYAML(file string) ([]ExprRule, error) {
 // compiledExprRule is the internal, compiled representation of an expression rule.
 type compiledExprRule struct {
 	Name        string
-	Action      Action
+	Action      *Action // fallthrough if nil
+	Log         bool
 	ModInstance modifier.Instance
 	Program     *vm.Program
 }
@@ -55,6 +57,7 @@ var _ Ruleset = (*exprRuleset)(nil)
 type exprRuleset struct {
 	Rules      []compiledExprRule
 	Ans        []analyzer.Analyzer
+	Logger     Logger
 	GeoMatcher *geo.GeoMatcher
 }
 
@@ -62,25 +65,31 @@ func (r *exprRuleset) Analyzers(info StreamInfo) []analyzer.Analyzer {
 	return r.Ans
 }
 
-func (r *exprRuleset) Match(info StreamInfo) (MatchResult, error) {
+func (r *exprRuleset) Match(info StreamInfo) MatchResult {
 	env := streamInfoToExprEnv(info)
 	for _, rule := range r.Rules {
 		v, err := vm.Run(rule.Program, env)
 		if err != nil {
-			return MatchResult{
-				Action: ActionMaybe,
-			}, fmt.Errorf("rule %q failed to run: %w", rule.Name, err)
+			// Log the error and continue to the next rule.
+			r.Logger.MatchError(info, rule.Name, err)
+			continue
 		}
 		if vBool, ok := v.(bool); ok && vBool {
-			return MatchResult{
-				Action:      rule.Action,
-				ModInstance: rule.ModInstance,
-			}, nil
+			if rule.Log {
+				r.Logger.Log(info, rule.Name)
+			}
+			if rule.Action != nil {
+				return MatchResult{
+					Action:      *rule.Action,
+					ModInstance: rule.ModInstance,
+				}
+			}
 		}
 	}
+	// No match
 	return MatchResult{
 		Action: ActionMaybe,
-	}, nil
+	}
 }
 
 // CompileExprRules compiles a list of expression rules into a ruleset.
@@ -97,11 +106,18 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	}
 	// Compile all rules and build a map of analyzers that are used by the rules.
 	for _, rule := range rules {
-		action, ok := actionStringToAction(rule.Action)
-		if !ok {
-			return nil, fmt.Errorf("rule %q has invalid action %q", rule.Name, rule.Action)
+		if rule.Action == "" && !rule.Log {
+			return nil, fmt.Errorf("rule %q must have at least one of action or log", rule.Name)
 		}
-		visitor := &idVisitor{Identifiers: make(map[string]bool)}
+		var action *Action
+		if rule.Action != "" {
+			a, ok := actionStringToAction(rule.Action)
+			if !ok {
+				return nil, fmt.Errorf("rule %q has invalid action %q", rule.Name, rule.Action)
+			}
+			action = &a
+		}
+		visitor := &idVisitor{Variables: make(map[string]bool), Identifiers: make(map[string]bool)}
 		patcher := &idPatcher{}
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
@@ -118,7 +134,8 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			return nil, fmt.Errorf("rule %q failed to patch expression: %w", rule.Name, patcher.Err)
 		}
 		for name := range visitor.Identifiers {
-			if isBuiltInAnalyzer(name) {
+			// Skip built-in analyzers & user-defined variables
+			if isBuiltInAnalyzer(name) || visitor.Variables[name] {
 				continue
 			}
 			// Check if it's one of the built-in functions, and if so,
@@ -145,9 +162,10 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		cr := compiledExprRule{
 			Name:    rule.Name,
 			Action:  action,
+			Log:     rule.Log,
 			Program: program,
 		}
-		if action == ActionModify {
+		if action != nil && *action == ActionModify {
 			mod, ok := fullModMap[rule.Modifier.Name]
 			if !ok {
 				return nil, fmt.Errorf("rule %q uses unknown modifier %q", rule.Name, rule.Modifier.Name)
@@ -168,6 +186,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	return &exprRuleset{
 		Rules:      compiledRules,
 		Ans:        depAns,
+		Logger:     config.Logger,
 		GeoMatcher: geoMatcher,
 	}, nil
 }
@@ -265,11 +284,14 @@ func modifiersToMap(mods []modifier.Modifier) map[string]modifier.Modifier {
 // idVisitor is a visitor that collects all identifiers in an expression.
 // This is for determining which analyzers are used by the expression.
 type idVisitor struct {
+	Variables   map[string]bool
 	Identifiers map[string]bool
 }
 
 func (v *idVisitor) Visit(node *ast.Node) {
-	if idNode, ok := (*node).(*ast.IdentifierNode); ok {
+	if varNode, ok := (*node).(*ast.VariableDeclaratorNode); ok {
+		v.Variables[varNode.Name] = true
+	} else if idNode, ok := (*node).(*ast.IdentifierNode); ok {
 		v.Identifiers[idNode.Value] = true
 	}
 }
@@ -284,6 +306,10 @@ func (p *idPatcher) Visit(node *ast.Node) {
 	switch (*node).(type) {
 	case *ast.CallNode:
 		callNode := (*node).(*ast.CallNode)
+		if callNode.Func == nil {
+			// Ignore invalid call nodes
+			return
+		}
 		switch callNode.Func.Name {
 		case "cidr":
 			cidrStringNode, ok := callNode.Arguments[1].(*ast.StringNode)

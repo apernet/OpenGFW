@@ -93,6 +93,11 @@ workers:
 规则的语法请参考 [Expr Language Definition](https://expr-lang.org/docs/language-definition)。
 
 ```yaml
+# 每条规则必须至少包含 action 或 log 中的一个。
+- name: log horny people
+  log: true
+  expr: let sni = string(tls?.req?.sni); sni contains "porn" || sni contains "hentai"
+
 - name: block v2ex http
   action: block
   expr: string(http?.req?.headers?.host) endsWith "v2ex.com"
@@ -105,8 +110,9 @@ workers:
   action: block
   expr: string(quic?.req?.sni) endsWith "v2ex.com"
 
-- name: block shadowsocks
+- name: block and log shadowsocks
   action: block
+  log: true
   expr: fet != nil && fet.yes
 
 - name: block trojan

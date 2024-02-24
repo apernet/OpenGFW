@@ -98,6 +98,11 @@ For syntax of the expression language, please refer
 to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
 
 ```yaml
+# A rule must have at least one of "action" or "log" field set.
+- name: log horny people
+  log: true
+  expr: let sni = string(tls?.req?.sni); sni contains "porn" || sni contains "hentai"
+
 - name: block v2ex http
   action: block
   expr: string(http?.req?.headers?.host) endsWith "v2ex.com"
@@ -110,8 +115,9 @@ to [Expr Language Definition](https://expr-lang.org/docs/language-definition).
   action: block
   expr: string(quic?.req?.sni) endsWith "v2ex.com"
 
-- name: block shadowsocks
+- name: block and log shadowsocks
   action: block
+  log: true
   expr: fet != nil && fet.yes
 
 - name: block trojan

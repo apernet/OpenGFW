@@ -254,6 +254,7 @@ func runMain(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load rules", zap.Error(err))
 	}
 	rsConfig := &ruleset.BuiltinConfig{
+		Logger:          &rulesetLogger{},
 		GeoSiteFilename: config.Ruleset.GeoSite,
 		GeoIpFilename:   config.Ruleset.GeoIp,
 	}
@@ -371,14 +372,6 @@ func (l *engineLogger) UDPStreamAction(info ruleset.StreamInfo, action ruleset.A
 		zap.Bool("noMatch", noMatch))
 }
 
-func (l *engineLogger) MatchError(info ruleset.StreamInfo, err error) {
-	logger.Error("match error",
-		zap.Int64("id", info.ID),
-		zap.String("src", info.SrcString()),
-		zap.String("dst", info.DstString()),
-		zap.Error(err))
-}
-
 func (l *engineLogger) ModifyError(info ruleset.StreamInfo, err error) {
 	logger.Error("modify error",
 		zap.Int64("id", info.ID),
@@ -406,6 +399,26 @@ func (l *engineLogger) AnalyzerErrorf(streamID int64, name string, format string
 		zap.Int64("id", streamID),
 		zap.String("name", name),
 		zap.String("msg", fmt.Sprintf(format, args...)))
+}
+
+type rulesetLogger struct{}
+
+func (l *rulesetLogger) Log(info ruleset.StreamInfo, name string) {
+	logger.Info("ruleset log",
+		zap.String("name", name),
+		zap.Int64("id", info.ID),
+		zap.String("src", info.SrcString()),
+		zap.String("dst", info.DstString()),
+		zap.Any("props", info.Props))
+}
+
+func (l *rulesetLogger) MatchError(info ruleset.StreamInfo, name string, err error) {
+	logger.Error("ruleset match error",
+		zap.String("name", name),
+		zap.Int64("id", info.ID),
+		zap.String("src", info.SrcString()),
+		zap.String("dst", info.DstString()),
+		zap.Error(err))
 }
 
 func envOrDefaultString(key, def string) string {

@@ -148,10 +148,7 @@ func (s *tcpStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.Ass
 		s.virgin = false
 		s.logger.TCPStreamPropUpdate(s.info, false)
 		// Match properties against ruleset
-		result, err := s.ruleset.Match(s.info)
-		if err != nil {
-			s.logger.MatchError(s.info, err)
-		}
+		result := s.ruleset.Match(s.info)
 		action := result.Action
 		if action != ruleset.ActionMaybe && action != ruleset.ActionModify {
 			verdict := actionToTCPVerdict(action)
