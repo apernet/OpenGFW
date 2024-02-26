@@ -138,9 +138,10 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error {
 	err := n.n.RegisterWithErrorFunc(ctx,
 		func(a nfqueue.Attribute) int {
-			if a.PacketID == nil || a.Ct == nil || a.Payload == nil || len(*a.Payload) < 20 {
-				// Invalid packet, ignore
-				// 20 is the minimum possible size of an IP packet
+			if ok, verdict := n.packetAttributeSanityCheck(a); !ok {
+				if a.PacketID != nil {
+					_ = n.n.SetVerdict(*a.PacketID, verdict)
+				}
 				return 0
 			}
 			p := &nfqueuePacket{
@@ -168,6 +169,25 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 		n.rSet = true
 	}
 	return nil
+}
+
+func (n *nfqueuePacketIO) packetAttributeSanityCheck(a nfqueue.Attribute) (ok bool, verdict int) {
+	if a.PacketID == nil {
+		// Re-inject to NFQUEUE is actually not possible in this condition
+		return false, -1
+	}
+	if a.Payload == nil || len(*a.Payload) < 20 {
+		// 20 is the minimum possible size of an IP packet
+		return false, nfqueue.NfDrop
+	}
+	if a.Ct == nil {
+		// Multicast packets may not have a conntrack, but only appear in local mode
+		if n.local {
+			return false, nfqueue.NfAccept
+		}
+		return false, nfqueue.NfDrop
+	}
+	return true, -1
 }
 
 func (n *nfqueuePacketIO) SetVerdict(p Packet, v Verdict, newPacket []byte) error {
