@@ -1,6 +1,6 @@
 on:
   release:
-    types: [ created ]
+    types: [published]
 
 permissions:
   contents: write
@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [ linux ]
-        goarch: [ "386", amd64, arm64 ]
+        goos: [linux]
+        goarch: ["386", amd64, arm64]
     steps:
       - uses: actions/checkout@v4
       - uses: wangyoucao577/go-release-action@v1
@@ -21,6 +21,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://go.dev/dl/go1.21.6.linux-amd64.tar.gz"
+          goversion: "https://go.dev/dl/go1.22.0.linux-amd64.tar.gz"
           binary_name: "OpenGFW"
           extra_files: LICENSE README.md README.zh.md
