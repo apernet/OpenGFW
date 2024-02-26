@@ -143,8 +143,11 @@ func isTLSorHTTP(bytes []byte) bool {
 	if len(bytes) < 3 {
 		return false
 	}
-	if bytes[0] == 0x16 && bytes[1] == 0x03 && bytes[2] <= 0x03 {
-		// TLS handshake for TLS 1.0-1.3
+	// "We observe that the GFW exempts any connection whose first
+	// three bytes match the following regular expression:
+	// [\x16-\x17]\x03[\x00-\x09]" - from the paper in Section 4.3
+	if bytes[0] >= 0x16 && bytes[0] <= 0x17 &&
+		bytes[1] == 0x03 && bytes[2] <= 0x09 {
 		return true
 	}
 	// HTTP request
