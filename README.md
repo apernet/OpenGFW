@@ -23,7 +23,7 @@ Telegram group: https://t.me/OpGFW
 - Full IP/TCP reassembly, various protocol analyzers
   - HTTP, TLS, QUIC, DNS, SSH, SOCKS4/5, WireGuard, and many more to come
   - "Fully encrypted traffic" detection for Shadowsocks,
-    etc. (https://gfw.report/publications/usenixsecurity23/data/paper/paper.pdf)
+    etc. (https://gfw.report/publications/usenixsecurity23/en/)
   - Trojan (proxy protocol) detection based on Trojan-killer (https://github.com/XTLS/Trojan-killer)
   - [WIP] Machine learning based traffic classification
 - Full IPv4 and IPv6 support
