@@ -12,7 +12,6 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
 	"github.com/mdlayher/netlink"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -153,12 +152,6 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 			return okBoolToInt(cb(p, nil))
 		},
 		func(e error) int {
-			if opErr := (*netlink.OpError)(nil); errors.As(e, &opErr) {
-				if errors.Is(opErr.Err, unix.ENOBUFS) {
-					// Kernel buffer temporarily full, ignore
-					return 0
-				}
-			}
 			return okBoolToInt(cb(nil, e))
 		})
 	if err != nil {
