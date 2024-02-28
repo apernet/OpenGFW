@@ -127,6 +127,10 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = n.Con.SetOption(netlink.NoENOBUFS, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set NoENOBUFS option: %w", err)
+	}
 	return &nfqueuePacketIO{
 		n:     n,
 		local: config.Local,
