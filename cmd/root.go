@@ -168,8 +168,10 @@ type cliConfig struct {
 }
 
 type cliConfigIO struct {
-	QueueSize uint32 `mapstructure:"queueSize"`
-	Local     bool   `mapstructure:"local"`
+	QueueSize   uint32 `mapstructure:"queueSize"`
+	ReadBuffer  int    `mapstructure:"rcvBuf"`
+	WriteBuffer int    `mapstructure:"sndBuf"`
+	Local       bool   `mapstructure:"local"`
 }
 
 type cliConfigWorkers struct {
@@ -192,8 +194,10 @@ func (c *cliConfig) fillLogger(config *engine.Config) error {
 
 func (c *cliConfig) fillIO(config *engine.Config) error {
 	nfio, err := io.NewNFQueuePacketIO(io.NFQueuePacketIOConfig{
-		QueueSize: c.IO.QueueSize,
-		Local:     c.IO.Local,
+		QueueSize:   c.IO.QueueSize,
+		ReadBuffer:  c.IO.ReadBuffer,
+		WriteBuffer: c.IO.WriteBuffer,
+		Local:       c.IO.Local,
 	})
 	if err != nil {
 		return configError{Field: "io", Err: err}

@@ -70,6 +70,8 @@ opkg install kmod-nft-queue kmod-nf-conntrack-netlink
 ```yaml
 io:
   queueSize: 1024
+  rcvBuf: 4194304
+  sndBuf: 4194304
   local: true # FORWARD チェーンで OpenGFW を実行したい場合は false に設定する
 
 workers:

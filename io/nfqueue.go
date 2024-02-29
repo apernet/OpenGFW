@@ -97,8 +97,10 @@ type nfqueuePacketIO struct {
 }
 
 type NFQueuePacketIOConfig struct {
-	QueueSize uint32
-	Local     bool
+	QueueSize   uint32
+	ReadBuffer  int
+	WriteBuffer int
+	Local       bool
 }
 
 func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
@@ -127,6 +129,20 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if config.ReadBuffer > 0 {
+		err = n.Con.SetReadBuffer(config.ReadBuffer)
+		if err != nil {
+			_ = n.Close()
+			return nil, err
+		}
+	}
+	if config.WriteBuffer > 0 {
+		err = n.Con.SetWriteBuffer(config.WriteBuffer)
+		if err != nil {
+			_ = n.Close()
+			return nil, err
+		}
 	}
 	return &nfqueuePacketIO{
 		n:     n,
