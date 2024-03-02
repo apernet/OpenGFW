@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/analyzer/tcp"
@@ -284,31 +283,13 @@ func runMain(cmd *cobra.Command, args []string) {
 		logger.Info("shutting down gracefully...")
 		cancelFunc()
 	}()
-	go func() {
-		// Rule reload
-		reloadChan := make(chan os.Signal)
-		signal.Notify(reloadChan, syscall.SIGHUP)
-		for {
-			<-reloadChan
-			logger.Info("reloading rules")
-			rawRs, err := ruleset.ExprRulesFromYAML(args[0])
-			if err != nil {
-				logger.Error("failed to load rules, using old rules", zap.Error(err))
-				continue
-			}
-			rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
-			if err != nil {
-				logger.Error("failed to compile rules, using old rules", zap.Error(err))
-				continue
-			}
-			err = en.UpdateRuleset(rs)
-			if err != nil {
-				logger.Error("failed to update ruleset", zap.Error(err))
-			} else {
-				logger.Info("rules reloaded")
-			}
-		}
-	}()
+
+	rsLoader := ruleset.NewSignalRuleSetLoader(args[0], func(rs ruleset.Ruleset) error {
+		return en.UpdateRuleset(rs)
+	}, analyzers, modifiers, rsConfig)
+	if err := rsLoader.Start(); err != nil {
+		logger.Error("start ruleset loader failed", zap.Error(err))
+	}
 
 	logger.Info("engine started")
 	logger.Info("engine exited", zap.Error(en.Run(ctx)))
