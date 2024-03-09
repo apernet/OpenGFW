@@ -62,7 +62,11 @@ OpenGFW 在 OpenWrt 23.05 上测试可用（其他版本应该也可以，暂时
 安装依赖：
 
 ```shell
+# 对于 22.03 或者之后的版本（基于 nftables 的防火墙）
 opkg install kmod-nft-queue kmod-nf-conntrack-netlink
+
+# 对于 22.03 之前的版本（不包括 22.03， 基于 iptables 的防火墙）
+opkg install kmod-ipt-nfqueue iptables-mod-nfqueue kmod-nf-conntrack-netlink
 ```
 
 ### 样例配置
