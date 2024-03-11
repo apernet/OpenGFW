@@ -1,0 +1,47 @@
+name: Quality check
+on:
+  push:
+    branches:
+    - "*"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - run: go vet ./...
+
+      - name: staticcheck
+        uses: dominikh/staticcheck-action@v1.3.0
+        with:
+          install-go: false
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - run: go test ./...
