@@ -208,10 +208,10 @@ func (s *socksStream) parseSocks5ReqMethod() utils.LSMAction {
 		switch method {
 		case Socks5AuthNotRequired:
 			s.authReqMethod = Socks5AuthNotRequired
-			break
+			return utils.LSMActionNext
 		case Socks5AuthPassword:
 			s.authReqMethod = Socks5AuthPassword
-			break
+			return utils.LSMActionNext
 		default:
 			// TODO: more auth method to support
 		}
