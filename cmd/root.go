@@ -279,7 +279,7 @@ func runMain(cmd *cobra.Command, args []string) {
 	go func() {
 		// Graceful shutdown
 		shutdownChan := make(chan os.Signal)
-		signal.Notify(shutdownChan, os.Interrupt, os.Kill)
+		signal.Notify(shutdownChan, os.Interrupt, os.Kill, syscall.SIGTERM)
 		<-shutdownChan
 		logger.Info("shutting down gracefully...")
 		cancelFunc()
