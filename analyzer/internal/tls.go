@@ -5,7 +5,26 @@ import (
 	"github.com/apernet/OpenGFW/analyzer/utils"
 )
 
-func ParseTLSClientHello(chBuf *utils.ByteBuffer) analyzer.PropMap {
+// TLS record types.
+const (
+	RecordTypeHandshake = 0x16
+)
+
+// TLS handshake message types.
+const (
+	TypeClientHello = 0x01
+	TypeServerHello = 0x02
+)
+
+// TLS extension numbers.
+const (
+	extServerName           = 0x0000
+	extALPN                 = 0x0010
+	extSupportedVersions    = 0x002b
+	extEncryptedClientHello = 0xfe0d
+)
+
+func ParseTLSClientHelloMsgData(chBuf *utils.ByteBuffer) analyzer.PropMap {
 	var ok bool
 	m := make(analyzer.PropMap)
 	// Version, random & session ID length combined are within 35 bytes,
@@ -76,7 +95,7 @@ func ParseTLSClientHello(chBuf *utils.ByteBuffer) analyzer.PropMap {
 	return m
 }
 
-func ParseTLSServerHello(shBuf *utils.ByteBuffer) analyzer.PropMap {
+func ParseTLSServerHelloMsgData(shBuf *utils.ByteBuffer) analyzer.PropMap {
 	var ok bool
 	m := make(analyzer.PropMap)
 	// Version, random & session ID length combined are within 35 bytes,
@@ -133,7 +152,7 @@ func ParseTLSServerHello(shBuf *utils.ByteBuffer) analyzer.PropMap {
 
 func parseTLSExtensions(extType uint16, extDataBuf *utils.ByteBuffer, m analyzer.PropMap) bool {
 	switch extType {
-	case 0x0000: // SNI
+	case extServerName:
 		ok := extDataBuf.Skip(2) // Ignore list length, we only care about the first entry for now
 		if !ok {
 			// Not enough data for list length
@@ -154,7 +173,7 @@ func parseTLSExtensions(extType uint16, extDataBuf *utils.ByteBuffer, m analyzer
 			// Not enough data for SNI
 			return false
 		}
-	case 0x0010: // ALPN
+	case extALPN:
 		ok := extDataBuf.Skip(2) // Ignore list length, as we read until the end
 		if !ok {
 			// Not enough data for list length
@@ -175,7 +194,7 @@ func parseTLSExtensions(extType uint16, extDataBuf *utils.ByteBuffer, m analyzer
 			alpnList = append(alpnList, alpn)
 		}
 		m["alpn"] = alpnList
-	case 0x002b: // Supported Versions
+	case extSupportedVersions:
 		if extDataBuf.Len() == 2 {
 			// Server only selects one version
 			m["supported_versions"], _ = extDataBuf.GetUint16(false, true)
@@ -197,7 +216,7 @@ func parseTLSExtensions(extType uint16, extDataBuf *utils.ByteBuffer, m analyzer
 			}
 			m["supported_versions"] = versions
 		}
-	case 0xfe0d: // ECH
+	case extEncryptedClientHello:
 		// We can't parse ECH for now, just set a flag
 		m["ech"] = true
 	}

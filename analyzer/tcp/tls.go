@@ -44,12 +44,12 @@ type tlsStream struct {
 func newTLSStream(logger analyzer.Logger) *tlsStream {
 	s := &tlsStream{logger: logger, reqBuf: &utils.ByteBuffer{}, respBuf: &utils.ByteBuffer{}}
 	s.reqLSM = utils.NewLinearStateMachine(
-		s.tlsClientHelloSanityCheck,
-		s.parseClientHello,
+		s.tlsClientHelloPreprocess,
+		s.parseClientHelloData,
 	)
 	s.respLSM = utils.NewLinearStateMachine(
-		s.tlsServerHelloSanityCheck,
-		s.parseServerHello,
+		s.tlsServerHelloPreprocess,
+		s.parseServerHelloData,
 	)
 	return s
 }
@@ -89,61 +89,105 @@ func (s *tlsStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyz
 	return update, cancelled || (s.reqDone && s.respDone)
 }
 
-func (s *tlsStream) tlsClientHelloSanityCheck() utils.LSMAction {
-	data, ok := s.reqBuf.Get(9, true)
+// tlsClientHelloPreprocess validates ClientHello message.
+//
+// During validation, message header and first handshake header may be removed
+// from `s.reqBuf`.
+func (s *tlsStream) tlsClientHelloPreprocess() utils.LSMAction {
+	// headers size: content type (1 byte) + legacy protocol version (2 bytes) +
+	//   + content length (2 bytes) + message type (1 byte) +
+	//   + handshake length (3 bytes)
+	const headersSize = 9
+
+	// minimal data size: protocol version (2 bytes) + random (32 bytes) +
+	//   + session ID (1 byte) + cipher suites (4 bytes) +
+	//   + compression methods (2 bytes) + no extensions
+	const minDataSize = 41
+
+	header, ok := s.reqBuf.Get(headersSize, true)
 	if !ok {
+		// not a full header yet
 		return utils.LSMActionPause
 	}
-	if data[0] != 0x16 || data[5] != 0x01 {
-		// Not a TLS handshake, or not a client hello
+
+	if header[0] != internal.RecordTypeHandshake || header[5] != internal.TypeClientHello {
 		return utils.LSMActionCancel
 	}
-	s.clientHelloLen = int(data[6])<<16 | int(data[7])<<8 | int(data[8])
-	if s.clientHelloLen < 41 {
-		// 2 (Protocol Version) +
-		// 32 (Random) +
-		// 1 (Session ID Length) +
-		// 2 (Cipher Suites Length) +_ws.col.protocol == "TLSv1.3"
-		// 2 (Cipher Suite) +
-		// 1 (Compression Methods Length) +
-		// 1 (Compression Method) +
-		// No extensions
-		// This should be the bare minimum for a client hello
+
+	s.clientHelloLen = int(header[6])<<16 | int(header[7])<<8 | int(header[8])
+	if s.clientHelloLen < minDataSize {
 		return utils.LSMActionCancel
 	}
+
+	// TODO: something is missing. See:
+	//   const messageHeaderSize = 4
+	//   fullMessageLen := int(header[3])<<8 | int(header[4])
+	//   msgNo := fullMessageLen / int(messageHeaderSize+s.serverHelloLen)
+	//   if msgNo != 1 {
+	// 	   // what here?
+	//   }
+	//   if messageNo != int(messageNo) {
+	// 	   // what here?
+	//   }
+
 	return utils.LSMActionNext
 }
 
-func (s *tlsStream) tlsServerHelloSanityCheck() utils.LSMAction {
-	data, ok := s.respBuf.Get(9, true)
+// tlsServerHelloPreprocess validates ServerHello message.
+//
+// During validation, message header and first handshake header may be removed
+// from `s.reqBuf`.
+func (s *tlsStream) tlsServerHelloPreprocess() utils.LSMAction {
+	// header size: content type (1 byte) + legacy protocol version (2 byte) +
+	//   + content length (2 byte) + message type (1 byte) +
+	//   + handshake length (3 byte)
+	const headersSize = 9
+
+	// minimal data size: server version (2 byte) + random (32 byte) +
+	//	 + session ID (>=1 byte) + cipher suite (2 byte) +
+	//	 + compression method (1 byte) + no extensions
+	const minDataSize = 38
+
+	header, ok := s.respBuf.Get(headersSize, true)
 	if !ok {
+		// not a full header yet
 		return utils.LSMActionPause
 	}
-	if data[0] != 0x16 || data[5] != 0x02 {
-		// Not a TLS handshake, or not a server hello
+
+	if header[0] != internal.RecordTypeHandshake || header[5] != internal.TypeServerHello {
 		return utils.LSMActionCancel
 	}
-	s.serverHelloLen = int(data[6])<<16 | int(data[7])<<8 | int(data[8])
-	if s.serverHelloLen < 38 {
-		// 2 (Protocol Version) +
-		// 32 (Random) +
-		// 1 (Session ID Length) +
-		// 2 (Cipher Suite) +
-		// 1 (Compression Method) +
-		// No extensions
-		// This should be the bare minimum for a server hello
+
+	s.serverHelloLen = int(header[6])<<16 | int(header[7])<<8 | int(header[8])
+	if s.serverHelloLen < minDataSize {
 		return utils.LSMActionCancel
 	}
+
+	// TODO: something is missing. See example:
+	//   const messageHeaderSize = 4
+	//   fullMessageLen := int(header[3])<<8 | int(header[4])
+	//   msgNo := fullMessageLen / int(messageHeaderSize+s.serverHelloLen)
+	//   if msgNo != 1 {
+	// 	   // what here?
+	//   }
+	//   if messageNo != int(messageNo) {
+	// 	   // what here?
+	//   }
+
 	return utils.LSMActionNext
 }
 
-func (s *tlsStream) parseClientHello() utils.LSMAction {
+// parseClientHelloData converts valid ClientHello message data (without
+// headers) into `analyzer.PropMap`.
+//
+// Parsing error may leave `s.reqBuf` in an unusable state.
+func (s *tlsStream) parseClientHelloData() utils.LSMAction {
 	chBuf, ok := s.reqBuf.GetSubBuffer(s.clientHelloLen, true)
 	if !ok {
 		// Not a full client hello yet
 		return utils.LSMActionPause
 	}
-	m := internal.ParseTLSClientHello(chBuf)
+	m := internal.ParseTLSClientHelloMsgData(chBuf)
 	if m == nil {
 		return utils.LSMActionCancel
 	} else {
@@ -153,13 +197,17 @@ func (s *tlsStream) parseClientHello() utils.LSMAction {
 	}
 }
 
-func (s *tlsStream) parseServerHello() utils.LSMAction {
+// parseServerHelloData converts valid ServerHello message data (without
+// headers) into `analyzer.PropMap`.
+//
+// Parsing error may leave `s.respBuf` in an unusable state.
+func (s *tlsStream) parseServerHelloData() utils.LSMAction {
 	shBuf, ok := s.respBuf.GetSubBuffer(s.serverHelloLen, true)
 	if !ok {
 		// Not a full server hello yet
 		return utils.LSMActionPause
 	}
-	m := internal.ParseTLSServerHello(shBuf)
+	m := internal.ParseTLSServerHelloMsgData(shBuf)
 	if m == nil {
 		return utils.LSMActionCancel
 	} else {

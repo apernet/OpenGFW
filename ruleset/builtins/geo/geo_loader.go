@@ -49,7 +49,7 @@ func (l *V2GeoLoader) shouldDownload(filename string) bool {
 	if os.IsNotExist(err) {
 		return true
 	}
-	dt := time.Now().Sub(info.ModTime())
+	dt := time.Since(info.ModTime())
 	if l.UpdateInterval == 0 {
 		return dt > geoDefaultUpdateInterval
 	} else {

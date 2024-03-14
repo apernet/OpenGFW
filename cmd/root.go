@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -278,15 +277,15 @@ func runMain(cmd *cobra.Command, args []string) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	go func() {
 		// Graceful shutdown
-		shutdownChan := make(chan os.Signal)
-		signal.Notify(shutdownChan, os.Interrupt, os.Kill)
+		shutdownChan := make(chan os.Signal, 1)
+		signal.Notify(shutdownChan, os.Interrupt, syscall.SIGTERM)
 		<-shutdownChan
 		logger.Info("shutting down gracefully...")
 		cancelFunc()
 	}()
 	go func() {
 		// Rule reload
-		reloadChan := make(chan os.Signal)
+		reloadChan := make(chan os.Signal, 1)
 		signal.Notify(reloadChan, syscall.SIGHUP)
 		for {
 			<-reloadChan
@@ -428,14 +427,6 @@ func (l *rulesetLogger) MatchError(info ruleset.StreamInfo, name string, err err
 func envOrDefaultString(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
-	}
-	return def
-}
-
-func envOrDefaultBool(key string, def bool) bool {
-	if v := os.Getenv(key); v != "" {
-		b, _ := strconv.ParseBool(v)
-		return b
 	}
 	return def
 }
