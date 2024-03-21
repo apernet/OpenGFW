@@ -20,7 +20,7 @@ Telegram グループ: https://t.me/OpGFW
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
   - HTTP、TLS、QUIC、DNS、SSH、SOCKS4/5、WireGuard、その他多数
   - Shadowsocks の「完全に暗号化されたトラフィック」の検出など (https://gfw.report/publications/usenixsecurity23/en/)
-  - トロイの木馬キラー (https://github.com/XTLS/Trojan-killer) に基づくトロイの木馬 (プロキシプロトコル) 検出
+  - Trojan プロキシプロトコルの検出
   - [WIP] 機械学習に基づくトラフィック分類
 - IPv4 と IPv6 をフルサポート
 - フローベースのマルチコア負荷分散
