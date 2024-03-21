@@ -246,8 +246,6 @@ Example for blocking QUIC connections to `quic.rocks`:
 
 ## Trojan (proxy protocol)
 
-Check https://github.com/XTLS/Trojan-killer for more information.
-
 ```json
 {
   "trojan": {
