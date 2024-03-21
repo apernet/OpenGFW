@@ -78,6 +78,7 @@ io:
   rcvBuf: 4194304
   sndBuf: 4194304
   local: true # FORWARD チェーンで OpenGFW を実行したい場合は false に設定する
+  rst: false # ブロックされたTCP接続に対してRSTを送信する場合はtrueに設定してください。local=falseのみです
 
 workers:
   count: 4

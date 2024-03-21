@@ -82,6 +82,7 @@ io:
   rcvBuf: 4194304
   sndBuf: 4194304
   local: true # set to false if you want to run OpenGFW on FORWARD chain
+  rst: false # set to true if you want to send RST for blocked TCP connections, local=false only
 
 workers:
   count: 4

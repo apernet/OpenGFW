@@ -43,6 +43,23 @@ table %s %s {
 }
 `, nfqueueConnMarkAccept, nfqueueConnMarkDrop, nfqueueNum, nftFamily, nftTable)
 
+var nftRulesForwardRST = fmt.Sprintf(`
+define ACCEPT_CTMARK=%d
+define DROP_CTMARK=%d
+define QUEUE_NUM=%d
+
+table %s %s {
+  chain FORWARD {
+    type filter hook forward priority filter; policy accept;
+
+    ct mark $ACCEPT_CTMARK counter accept
+    ip protocol tcp ct mark $DROP_CTMARK counter reject with tcp reset
+    ct mark $DROP_CTMARK counter drop
+    counter queue num $QUEUE_NUM bypass
+  }
+}
+`, nfqueueConnMarkAccept, nfqueueConnMarkDrop, nfqueueNum, nftFamily, nftTable)
+
 var nftRulesLocal = fmt.Sprintf(`
 define ACCEPT_CTMARK=%d
 define DROP_CTMARK=%d
@@ -72,6 +89,13 @@ var iptRulesForward = []iptRule{
 	{"filter", "FORWARD", []string{"-j", "NFQUEUE", "--queue-num", strconv.Itoa(nfqueueNum), "--queue-bypass"}},
 }
 
+var iptRulesForwardRST = []iptRule{
+	{"filter", "FORWARD", []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "ACCEPT"}},
+	{"filter", "FORWARD", []string{"-p", "tcp", "-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "REJECT", "--reject-with", "tcp-reset"}},
+	{"filter", "FORWARD", []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "DROP"}},
+	{"filter", "FORWARD", []string{"-j", "NFQUEUE", "--queue-num", strconv.Itoa(nfqueueNum), "--queue-bypass"}},
+}
+
 var iptRulesLocal = []iptRule{
 	{"filter", "INPUT", []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "ACCEPT"}},
 	{"filter", "INPUT", []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "DROP"}},
@@ -89,6 +113,7 @@ var errNotNFQueuePacket = errors.New("not an NFQueue packet")
 type nfqueuePacketIO struct {
 	n     *nfqueue.Nfqueue
 	local bool
+	rst   bool
 	rSet  bool // whether the nftables/iptables rules have been set
 
 	// iptables not nil = use iptables instead of nftables
@@ -101,6 +126,7 @@ type NFQueuePacketIOConfig struct {
 	ReadBuffer  int
 	WriteBuffer int
 	Local       bool
+	RST         bool
 }
 
 func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
@@ -147,6 +173,7 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	return &nfqueuePacketIO{
 		n:     n,
 		local: config.Local,
+		rst:   config.RST,
 		ipt4:  ipt4,
 		ipt6:  ipt6,
 	}, nil
@@ -182,9 +209,9 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 	}
 	if !n.rSet {
 		if n.ipt4 != nil {
-			err = n.setupIpt(n.local, false)
+			err = n.setupIpt(n.local, n.rst, false)
 		} else {
-			err = n.setupNft(n.local, false)
+			err = n.setupNft(n.local, n.rst, false)
 		}
 		if err != nil {
 			return err
@@ -238,21 +265,25 @@ func (n *nfqueuePacketIO) SetVerdict(p Packet, v Verdict, newPacket []byte) erro
 func (n *nfqueuePacketIO) Close() error {
 	if n.rSet {
 		if n.ipt4 != nil {
-			_ = n.setupIpt(n.local, true)
+			_ = n.setupIpt(n.local, n.rst, true)
 		} else {
-			_ = n.setupNft(n.local, true)
+			_ = n.setupNft(n.local, n.rst, true)
 		}
 		n.rSet = false
 	}
 	return n.n.Close()
 }
 
-func (n *nfqueuePacketIO) setupNft(local, remove bool) error {
+func (n *nfqueuePacketIO) setupNft(local, rst, remove bool) error {
 	var rules string
 	if local {
 		rules = nftRulesLocal
 	} else {
-		rules = nftRulesForward
+		if rst {
+			rules = nftRulesForwardRST
+		} else {
+			rules = nftRulesForward
+		}
 	}
 	var err error
 	if remove {
@@ -268,12 +299,16 @@ func (n *nfqueuePacketIO) setupNft(local, remove bool) error {
 	return nil
 }
 
-func (n *nfqueuePacketIO) setupIpt(local, remove bool) error {
+func (n *nfqueuePacketIO) setupIpt(local, rst, remove bool) error {
 	var rules []iptRule
 	if local {
 		rules = iptRulesLocal
 	} else {
-		rules = iptRulesForward
+		if rst {
+			rules = iptRulesForwardRST
+		} else {
+			rules = iptRulesForward
+		}
 	}
 	var err error
 	if remove {
