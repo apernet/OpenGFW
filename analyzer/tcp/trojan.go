@@ -14,7 +14,7 @@ var ccsPattern = []byte{20, 3, 3, 0, 1, 1}
 // TrojanAnalyzer uses length-based heuristics to detect Trojan traffic based on
 // its "TLS-in-TLS" nature. The heuristics are trained using a decision tree with
 // about 2000 samples. This is highly experimental and is known to have significant
-// false positives (about 8% false positives & 2% false negatives).
+// false positives (about 9% false positives & 3% false negatives).
 // We do NOT recommend directly blocking all positive connections, as this is likely
 // to break many normal TLS connections.
 type TrojanAnalyzer struct{}
@@ -36,7 +36,7 @@ type trojanStream struct {
 	first    bool
 	count    bool
 	rev      bool
-	seq      [4]int
+	seq      [3]int
 	seqIndex int
 }
 
@@ -69,16 +69,15 @@ func (s *trojanStream) Feed(rev, start, end bool, skip int, data []byte) (u *ana
 	if s.count {
 		if rev == s.rev {
 			// Same direction as last time, just update the number
-			s.seq[s.seqIndex] = len(data)
+			s.seq[s.seqIndex] += len(data)
 		} else {
 			// Different direction, bump the index
 			s.seqIndex += 1
-			if s.seqIndex == 4 {
+			if s.seqIndex == 3 {
 				// Time to evaluate
-				yes := s.seq[0] >= 100 &&
-					s.seq[1] >= 88 &&
-					s.seq[2] >= 40 &&
-					s.seq[3] >= 51
+				yes := s.seq[0] >= 180 &&
+					s.seq[1] <= 11000 &&
+					s.seq[2] >= 40
 				return &analyzer.PropUpdate{
 					Type: analyzer.PropUpdateReplace,
 					M: analyzer.PropMap{
@@ -87,7 +86,7 @@ func (s *trojanStream) Feed(rev, start, end bool, skip int, data []byte) (u *ana
 					},
 				}, true
 			}
-			s.seq[s.seqIndex] = len(data)
+			s.seq[s.seqIndex] += len(data)
 			s.rev = rev
 		}
 	}
