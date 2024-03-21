@@ -9,22 +9,14 @@ import (
 var _ analyzer.TCPAnalyzer = (*TrojanAnalyzer)(nil)
 
 // CCS stands for "Change Cipher Spec"
-var trojanCCS = []byte{20, 3, 3, 0, 1, 1}
+var ccsPattern = []byte{20, 3, 3, 0, 1, 1}
 
-const (
-	trojanUpLB    = 650
-	trojanUpUB    = 1000
-	trojanDownLB1 = 170
-	trojanDownUB1 = 180
-	trojanDownLB2 = 3000
-	trojanDownUB2 = 7500
-)
-
-// TrojanAnalyzer uses a very simple packet length based check to determine
-// if a TLS connection is actually the Trojan proxy protocol.
-// The algorithm is from the following project, with small modifications:
-// https://github.com/XTLS/Trojan-killer
-// Warning: Experimental only. This method is known to have significant false positives and false negatives.
+// TrojanAnalyzer uses length-based heuristics to detect Trojan traffic based on
+// its "TLS-in-TLS" nature. The heuristics are trained using a decision tree with
+// about 2000 samples. This is highly experimental and is known to have significant
+// false positives (about 8% false positives & 2% false negatives).
+// We do NOT recommend directly blocking all positive connections, as this is likely
+// to break many normal TLS connections.
 type TrojanAnalyzer struct{}
 
 func (a *TrojanAnalyzer) Name() string {
@@ -32,7 +24,7 @@ func (a *TrojanAnalyzer) Name() string {
 }
 
 func (a *TrojanAnalyzer) Limit() int {
-	return 16384
+	return 512000
 }
 
 func (a *TrojanAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
@@ -40,10 +32,12 @@ func (a *TrojanAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) a
 }
 
 type trojanStream struct {
-	logger    analyzer.Logger
-	active    bool
-	upCount   int
-	downCount int
+	logger   analyzer.Logger
+	first    bool
+	count    bool
+	rev      bool
+	seq      [4]int
+	seqIndex int
 }
 
 func newTrojanStream(logger analyzer.Logger) *trojanStream {
@@ -57,33 +51,48 @@ func (s *trojanStream) Feed(rev, start, end bool, skip int, data []byte) (u *ana
 	if len(data) == 0 {
 		return nil, false
 	}
-	if !rev && !s.active && len(data) >= 6 && bytes.Equal(data[:6], trojanCCS) {
-		// Client CCS encountered, start counting
-		s.active = true
+
+	if s.first {
+		s.first = false
+		// Stop if it's not a valid TLS connection
+		if !(!rev && len(data) >= 3 && data[0] >= 0x16 && data[0] <= 0x17 &&
+			data[1] == 0x03 && data[2] <= 0x09) {
+			return nil, true
+		}
 	}
-	if s.active {
-		if rev {
-			// Down direction
-			s.downCount += len(data)
+
+	if !rev && !s.count && len(data) >= 6 && bytes.Equal(data[:6], ccsPattern) {
+		// Client Change Cipher Spec encountered, start counting
+		s.count = true
+	}
+
+	if s.count {
+		if rev == s.rev {
+			// Same direction as last time, just update the number
+			s.seq[s.seqIndex] = len(data)
 		} else {
-			// Up direction
-			if s.upCount >= trojanUpLB && s.upCount <= trojanUpUB &&
-				((s.downCount >= trojanDownLB1 && s.downCount <= trojanDownUB1) ||
-					(s.downCount >= trojanDownLB2 && s.downCount <= trojanDownUB2)) {
+			// Different direction, bump the index
+			s.seqIndex += 1
+			if s.seqIndex == 4 {
+				// Time to evaluate
+				yes := s.seq[0] >= 100 &&
+					s.seq[1] >= 88 &&
+					s.seq[2] >= 40 &&
+					s.seq[3] >= 51
 				return &analyzer.PropUpdate{
 					Type: analyzer.PropUpdateReplace,
 					M: analyzer.PropMap{
-						"up":   s.upCount,
-						"down": s.downCount,
-						"yes":  true,
+						"seq": s.seq,
+						"yes": yes,
 					},
 				}, true
 			}
-			s.upCount += len(data)
+			s.seq[s.seqIndex] = len(data)
+			s.rev = rev
 		}
 	}
-	// Give up when either direction is over the limit
-	return nil, s.upCount > trojanUpUB || s.downCount > trojanDownUB2
+
+	return nil, false
 }
 
 func (s *trojanStream) Close(limited bool) *analyzer.PropUpdate {

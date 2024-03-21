@@ -251,8 +251,7 @@ Check https://github.com/XTLS/Trojan-killer for more information.
 ```json
 {
   "trojan": {
-    "down": 4712,
-    "up": 671,
+    "seq": [170, 282, 167, 470],
     "yes": true
   }
 }
