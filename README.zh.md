@@ -78,6 +78,7 @@ io:
   rcvBuf: 4194304
   sndBuf: 4194304
   local: true # 如果需要在 FORWARD 链上运行 OpenGFW，请设置为 false
+  rst: false # 是否对要阻断的 TCP 连接发送 RST。仅在 local=false 时有效
 
 workers:
   count: 4

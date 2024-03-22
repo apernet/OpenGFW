@@ -171,6 +171,7 @@ type cliConfigIO struct {
 	ReadBuffer  int    `mapstructure:"rcvBuf"`
 	WriteBuffer int    `mapstructure:"sndBuf"`
 	Local       bool   `mapstructure:"local"`
+	RST         bool   `mapstructure:"rst"`
 }
 
 type cliConfigWorkers struct {
@@ -197,6 +198,7 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 		ReadBuffer:  c.IO.ReadBuffer,
 		WriteBuffer: c.IO.WriteBuffer,
 		Local:       c.IO.Local,
+		RST:         c.IO.RST,
 	})
 	if err != nil {
 		return configError{Field: "io", Err: err}
