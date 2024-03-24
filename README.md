@@ -67,11 +67,7 @@ OpenGFW has been tested to work on OpenWrt 23.05 (other versions should also wor
 Install the dependencies:
 
 ```shell
-# For OpenWrt version 22.03 and later (nftables based firewall)
-opkg install kmod-nft-queue kmod-nf-conntrack-netlink
-
-# For OpenWrt versions prior to 22.03 (excluding 22.03, iptables based firewall)
-opkg install kmod-ipt-nfqueue iptables-mod-nfqueue kmod-nf-conntrack-netlink
+opkg install nftables kmod-nft-queue kmod-nf-conntrack-netlink
 ```
 
 ### Example config

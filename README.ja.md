@@ -63,11 +63,7 @@ OpenGFW は OpenWrt 23.05 で動作することがテストされています（
 依存関係をインストールしてください：
 
 ```shell
-# バージョン22.03以降（nftables をベースとしたファイアウォール）の場合
-opkg install kmod-nft-queue kmod-nf-conntrack-netlink
-
-# バージョン22.03以前（22.03を除く、iptablesをベースとしたファイアウォール）の場合
-opkg install kmod-ipt-nfqueue iptables-mod-nfqueue kmod-nf-conntrack-netlink
+opkg install nftables kmod-nft-queue kmod-nf-conntrack-netlink
 ```
 
 ### 設定例
