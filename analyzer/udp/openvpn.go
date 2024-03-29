@@ -20,7 +20,7 @@ func (a *OpenVpnAnalyzer) Limit() int {
 }
 
 func (a *OpenVpnAnalyzer) NewUDP(info analyzer.UDPInfo, logger analyzer.Logger) analyzer.UDPStream {
-	return newOpenVPNTCPStream(logger)
+	return newOpenVPNUdpStream(logger)
 }
 
 type openVpnStream struct {
@@ -53,7 +53,7 @@ type openVpnUdpPkt struct {
 	// payload []byte
 }
 
-func newOpenVPNTCPStream(logger analyzer.Logger) *openVpnStream {
+func newOpenVPNUdpStream(logger analyzer.Logger) *openVpnStream {
 	s := &openVpnStream{
 		logger:   logger,
 		pktLimit: internal.OpenVpnUdpPktDefaultLimit,

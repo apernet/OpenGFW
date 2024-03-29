@@ -20,7 +20,7 @@ func (a *OpenVpnAnalyzer) Limit() int {
 }
 
 func (a *OpenVpnAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
-	return newOpenVpnTCPStream(logger)
+	return newOpenVpnTcpStream(logger)
 }
 
 type openVpnStream struct {
@@ -52,7 +52,7 @@ type openVpnTcpPkt struct {
 	// payload []byte
 }
 
-func newOpenVpnTCPStream(logger analyzer.Logger) *openVpnStream {
+func newOpenVpnTcpStream(logger analyzer.Logger) *openVpnStream {
 	s := &openVpnStream{
 		logger:   logger,
 		reqBuf:   &utils.ByteBuffer{},
