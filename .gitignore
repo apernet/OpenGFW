@@ -205,3 +205,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,go,goland+all,visualstudiocode
+
+# Internal tools not ready for public use yet
+tools/flowseq/
