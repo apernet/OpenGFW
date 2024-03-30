@@ -92,7 +92,7 @@ var analyzers = []analyzer.Analyzer{
 	&tcp.TLSAnalyzer{},
 	&tcp.TrojanAnalyzer{},
 	&udp.DNSAnalyzer{},
-	&udp.OpenVpnAnalyzer{},
+	&udp.OpenVPNAnalyzer{},
 	&udp.QUICAnalyzer{},
 	&udp.WireGuardAnalyzer{},
 }

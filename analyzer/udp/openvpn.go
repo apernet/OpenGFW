@@ -6,13 +6,13 @@ import (
 )
 
 var (
-	_ analyzer.UDPAnalyzer = (*OpenVpnAnalyzer)(nil)
-	_ analyzer.TCPAnalyzer = (*OpenVpnAnalyzer)(nil)
+	_ analyzer.UDPAnalyzer = (*OpenVPNAnalyzer)(nil)
+	_ analyzer.TCPAnalyzer = (*OpenVPNAnalyzer)(nil)
 )
 
 var (
-	_ analyzer.UDPStream = (*openVpnUdpStream)(nil)
-	_ analyzer.TCPStream = (*openVpnTcpStream)(nil)
+	_ analyzer.UDPStream = (*openvpnUDPStream)(nil)
+	_ analyzer.TCPStream = (*openvpnTCPStream)(nil)
 )
 
 // Ref paper:
@@ -21,44 +21,44 @@ var (
 // OpenVPN Opcodes definitions from:
 // https://github.com/OpenVPN/openvpn/blob/master/src/openvpn/ssl_pkt.h
 const (
-	OpenVpnControlHardResetClientV1 = 1
-	OpenVpnControlHardResetServerV1 = 2
-	OpenVpnControlSoftResetV1       = 3
-	OpenVpnControlV1                = 4
-	OpenVpnAckV1                    = 5
-	OpenVpnDataV1                   = 6
-	OpenVpnControlHardResetClientV2 = 7
-	OpenVpnControlHardResetServerV2 = 8
-	OpenVpnDataV2                   = 9
-	OpenVpnControlHardResetClientV3 = 10
-	OpenVpnControlWkcV1             = 11
+	OpenVPNControlHardResetClientV1 = 1
+	OpenVPNControlHardResetServerV1 = 2
+	OpenVPNControlSoftResetV1       = 3
+	OpenVPNControlV1                = 4
+	OpenVPNAckV1                    = 5
+	OpenVPNDataV1                   = 6
+	OpenVPNControlHardResetClientV2 = 7
+	OpenVPNControlHardResetServerV2 = 8
+	OpenVPNDataV2                   = 9
+	OpenVPNControlHardResetClientV3 = 10
+	OpenVPNControlWkcV1             = 11
 )
 
 const (
-	OpenVpnMinPktLen          = 6
-	OpenVpnTcpPktDefaultLimit = 256
-	OpenVpnUdpPktDefaultLimit = 256
+	OpenVPNMinPktLen          = 6
+	OpenVPNTCPPktDefaultLimit = 256
+	OpenVPNUDPPktDefaultLimit = 256
 )
 
-type OpenVpnAnalyzer struct{}
+type OpenVPNAnalyzer struct{}
 
-func (a *OpenVpnAnalyzer) Name() string {
+func (a *OpenVPNAnalyzer) Name() string {
 	return "openvpn"
 }
 
-func (a *OpenVpnAnalyzer) Limit() int {
+func (a *OpenVPNAnalyzer) Limit() int {
 	return 0
 }
 
-func (a *OpenVpnAnalyzer) NewUDP(info analyzer.UDPInfo, logger analyzer.Logger) analyzer.UDPStream {
-	return newOpenVpnUdpStream(logger)
+func (a *OpenVPNAnalyzer) NewUDP(info analyzer.UDPInfo, logger analyzer.Logger) analyzer.UDPStream {
+	return newOpenVPNUDPStream(logger)
 }
 
-func (a *OpenVpnAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
-	return newOpenVpnTcpStream(logger)
+func (a *OpenVPNAnalyzer) NewTCP(info analyzer.TCPInfo, logger analyzer.Logger) analyzer.TCPStream {
+	return newOpenVPNTCPStream(logger)
 }
 
-type openVpnPkt struct {
+type openvpnPkt struct {
 	pktLen uint16 // 16 bits, TCP proto only
 	opcode byte   // 5 bits
 	_keyId byte   // 3 bits, not used
@@ -67,7 +67,7 @@ type openVpnPkt struct {
 	// payload []byte
 }
 
-type openVpnStream struct {
+type openvpnStream struct {
 	logger analyzer.Logger
 
 	reqUpdated bool
@@ -82,21 +82,21 @@ type openVpnStream struct {
 	txPktCnt int
 	pktLimit int
 
-	reqPktParse  func() (*openVpnPkt, utils.LSMAction)
-	respPktParse func() (*openVpnPkt, utils.LSMAction)
+	reqPktParse  func() (*openvpnPkt, utils.LSMAction)
+	respPktParse func() (*openvpnPkt, utils.LSMAction)
 
 	lastOpcode byte
 }
 
-func (o *openVpnStream) parseCtlHardResetClient() utils.LSMAction {
+func (o *openvpnStream) parseCtlHardResetClient() utils.LSMAction {
 	pkt, action := o.reqPktParse()
 	if action != utils.LSMActionNext {
 		return action
 	}
 
-	if pkt.opcode != OpenVpnControlHardResetClientV1 &&
-		pkt.opcode != OpenVpnControlHardResetClientV2 &&
-		pkt.opcode != OpenVpnControlHardResetClientV3 {
+	if pkt.opcode != OpenVPNControlHardResetClientV1 &&
+		pkt.opcode != OpenVPNControlHardResetClientV2 &&
+		pkt.opcode != OpenVPNControlHardResetClientV3 {
 		return utils.LSMActionCancel
 	}
 	o.lastOpcode = pkt.opcode
@@ -104,10 +104,10 @@ func (o *openVpnStream) parseCtlHardResetClient() utils.LSMAction {
 	return utils.LSMActionNext
 }
 
-func (o *openVpnStream) parseCtlHardResetServer() utils.LSMAction {
-	if o.lastOpcode != OpenVpnControlHardResetClientV1 &&
-		o.lastOpcode != OpenVpnControlHardResetClientV2 &&
-		o.lastOpcode != OpenVpnControlHardResetClientV3 {
+func (o *openvpnStream) parseCtlHardResetServer() utils.LSMAction {
+	if o.lastOpcode != OpenVPNControlHardResetClientV1 &&
+		o.lastOpcode != OpenVPNControlHardResetClientV2 &&
+		o.lastOpcode != OpenVPNControlHardResetClientV3 {
 		return utils.LSMActionCancel
 	}
 
@@ -116,8 +116,8 @@ func (o *openVpnStream) parseCtlHardResetServer() utils.LSMAction {
 		return action
 	}
 
-	if pkt.opcode != OpenVpnControlHardResetServerV1 &&
-		pkt.opcode != OpenVpnControlHardResetServerV2 {
+	if pkt.opcode != OpenVPNControlHardResetServerV1 &&
+		pkt.opcode != OpenVPNControlHardResetServerV2 {
 		return utils.LSMActionCancel
 	}
 	o.lastOpcode = pkt.opcode
@@ -125,18 +125,18 @@ func (o *openVpnStream) parseCtlHardResetServer() utils.LSMAction {
 	return utils.LSMActionNext
 }
 
-func (o *openVpnStream) parseReq() utils.LSMAction {
+func (o *openvpnStream) parseReq() utils.LSMAction {
 	pkt, action := o.reqPktParse()
 	if action != utils.LSMActionNext {
 		return action
 	}
 
-	if pkt.opcode != OpenVpnControlSoftResetV1 &&
-		pkt.opcode != OpenVpnControlV1 &&
-		pkt.opcode != OpenVpnAckV1 &&
-		pkt.opcode != OpenVpnDataV1 &&
-		pkt.opcode != OpenVpnDataV2 &&
-		pkt.opcode != OpenVpnControlWkcV1 {
+	if pkt.opcode != OpenVPNControlSoftResetV1 &&
+		pkt.opcode != OpenVPNControlV1 &&
+		pkt.opcode != OpenVPNAckV1 &&
+		pkt.opcode != OpenVPNDataV1 &&
+		pkt.opcode != OpenVPNDataV2 &&
+		pkt.opcode != OpenVPNControlWkcV1 {
 		return utils.LSMActionCancel
 	}
 
@@ -146,18 +146,18 @@ func (o *openVpnStream) parseReq() utils.LSMAction {
 	return utils.LSMActionPause
 }
 
-func (o *openVpnStream) parseResp() utils.LSMAction {
+func (o *openvpnStream) parseResp() utils.LSMAction {
 	pkt, action := o.respPktParse()
 	if action != utils.LSMActionNext {
 		return action
 	}
 
-	if pkt.opcode != OpenVpnControlSoftResetV1 &&
-		pkt.opcode != OpenVpnControlV1 &&
-		pkt.opcode != OpenVpnAckV1 &&
-		pkt.opcode != OpenVpnDataV1 &&
-		pkt.opcode != OpenVpnDataV2 &&
-		pkt.opcode != OpenVpnControlWkcV1 {
+	if pkt.opcode != OpenVPNControlSoftResetV1 &&
+		pkt.opcode != OpenVPNControlV1 &&
+		pkt.opcode != OpenVPNAckV1 &&
+		pkt.opcode != OpenVPNDataV1 &&
+		pkt.opcode != OpenVPNDataV2 &&
+		pkt.opcode != OpenVPNControlWkcV1 {
 		return utils.LSMActionCancel
 	}
 
@@ -167,18 +167,18 @@ func (o *openVpnStream) parseResp() utils.LSMAction {
 	return utils.LSMActionPause
 }
 
-type openVpnUdpStream struct {
-	openVpnStream
+type openvpnUDPStream struct {
+	openvpnStream
 	curPkt []byte
 	// We don't introduce `invalidCount` here to decrease the false positive rate
 	// invalidCount int
 }
 
-func newOpenVpnUdpStream(logger analyzer.Logger) *openVpnUdpStream {
-	s := &openVpnUdpStream{
-		openVpnStream: openVpnStream{
+func newOpenVPNUDPStream(logger analyzer.Logger) *openvpnUDPStream {
+	s := &openvpnUDPStream{
+		openvpnStream: openvpnStream{
 			logger:   logger,
-			pktLimit: OpenVpnUdpPktDefaultLimit,
+			pktLimit: OpenVPNUDPPktDefaultLimit,
 		},
 	}
 	s.respPktParse = s.parsePkt
@@ -194,7 +194,7 @@ func newOpenVpnUdpStream(logger analyzer.Logger) *openVpnUdpStream {
 	return s
 }
 
-func (o *openVpnUdpStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, d bool) {
+func (o *openvpnUDPStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, d bool) {
 	if len(data) == 0 {
 		return nil, false
 	}
@@ -226,22 +226,22 @@ func (o *openVpnUdpStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, 
 	return update, cancelled || (o.reqDone && o.respDone) || o.rxPktCnt+o.txPktCnt > o.pktLimit
 }
 
-func (o *openVpnUdpStream) Close(limited bool) *analyzer.PropUpdate {
+func (o *openvpnUDPStream) Close(limited bool) *analyzer.PropUpdate {
 	return nil
 }
 
-// Parse OpenVpn UDP packet.
-func (o *openVpnUdpStream) parsePkt() (p *openVpnPkt, action utils.LSMAction) {
+// Parse OpenVPN UDP packet.
+func (o *openvpnUDPStream) parsePkt() (p *openvpnPkt, action utils.LSMAction) {
 	if o.curPkt == nil {
 		return nil, utils.LSMActionPause
 	}
 
-	if !OpenVpnCheckForValidOpcode(o.curPkt[0] >> 3) {
+	if !OpenVPNCheckForValidOpcode(o.curPkt[0] >> 3) {
 		return nil, utils.LSMActionCancel
 	}
 
 	// Parse packet header
-	p = &openVpnPkt{}
+	p = &openvpnPkt{}
 	p.opcode = o.curPkt[0] >> 3
 	p._keyId = o.curPkt[0] & 0x07
 
@@ -249,25 +249,25 @@ func (o *openVpnUdpStream) parsePkt() (p *openVpnPkt, action utils.LSMAction) {
 	return p, utils.LSMActionNext
 }
 
-type openVpnTcpStream struct {
-	openVpnStream
+type openvpnTCPStream struct {
+	openvpnStream
 	reqBuf  *utils.ByteBuffer
 	respBuf *utils.ByteBuffer
 }
 
-func newOpenVpnTcpStream(logger analyzer.Logger) *openVpnTcpStream {
-	s := &openVpnTcpStream{
-		openVpnStream: openVpnStream{
+func newOpenVPNTCPStream(logger analyzer.Logger) *openvpnTCPStream {
+	s := &openvpnTCPStream{
+		openvpnStream: openvpnStream{
 			logger:   logger,
-			pktLimit: OpenVpnTcpPktDefaultLimit,
+			pktLimit: OpenVPNTCPPktDefaultLimit,
 		},
 		reqBuf:  &utils.ByteBuffer{},
 		respBuf: &utils.ByteBuffer{},
 	}
-	s.respPktParse = func() (*openVpnPkt, utils.LSMAction) {
+	s.respPktParse = func() (*openvpnPkt, utils.LSMAction) {
 		return s.parsePkt(true)
 	}
-	s.reqPktParse = func() (*openVpnPkt, utils.LSMAction) {
+	s.reqPktParse = func() (*openvpnPkt, utils.LSMAction) {
 		return s.parsePkt(false)
 	}
 	s.reqLSM = utils.NewLinearStateMachine(
@@ -281,7 +281,7 @@ func newOpenVpnTcpStream(logger analyzer.Logger) *openVpnTcpStream {
 	return s
 }
 
-func (o *openVpnTcpStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, d bool) {
+func (o *openvpnTCPStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, d bool) {
 	if skip != 0 {
 		return nil, true
 	}
@@ -317,14 +317,14 @@ func (o *openVpnTcpStream) Feed(rev, start, end bool, skip int, data []byte) (u 
 	return update, cancelled || (o.reqDone && o.respDone) || o.rxPktCnt+o.txPktCnt > o.pktLimit
 }
 
-func (o *openVpnTcpStream) Close(limited bool) *analyzer.PropUpdate {
+func (o *openvpnTCPStream) Close(limited bool) *analyzer.PropUpdate {
 	o.reqBuf.Reset()
 	o.respBuf.Reset()
 	return nil
 }
 
-// Parse OpenVpn TCP packet.
-func (o *openVpnTcpStream) parsePkt(rev bool) (p *openVpnPkt, action utils.LSMAction) {
+// Parse OpenVPN TCP packet.
+func (o *openvpnTCPStream) parsePkt(rev bool) (p *openvpnPkt, action utils.LSMAction) {
 	var buffer *utils.ByteBuffer
 	if rev {
 		buffer = o.respBuf
@@ -338,7 +338,7 @@ func (o *openVpnTcpStream) parsePkt(rev bool) (p *openVpnPkt, action utils.LSMAc
 		return nil, utils.LSMActionPause
 	}
 
-	if pktLen < OpenVpnMinPktLen {
+	if pktLen < OpenVPNMinPktLen {
 		return nil, utils.LSMActionCancel
 	}
 
@@ -346,7 +346,7 @@ func (o *openVpnTcpStream) parsePkt(rev bool) (p *openVpnPkt, action utils.LSMAc
 	if !ok {
 		return nil, utils.LSMActionPause
 	}
-	if !OpenVpnCheckForValidOpcode(pktOp[2] >> 3) {
+	if !OpenVPNCheckForValidOpcode(pktOp[2] >> 3) {
 		return nil, utils.LSMActionCancel
 	}
 
@@ -357,7 +357,7 @@ func (o *openVpnTcpStream) parsePkt(rev bool) (p *openVpnPkt, action utils.LSMAc
 	pkt = pkt[2:]
 
 	// Parse packet header
-	p = &openVpnPkt{}
+	p = &openvpnPkt{}
 	p.pktLen = pktLen
 	p.opcode = pkt[0] >> 3
 	p._keyId = pkt[0] & 0x07
@@ -365,19 +365,19 @@ func (o *openVpnTcpStream) parsePkt(rev bool) (p *openVpnPkt, action utils.LSMAc
 	return p, utils.LSMActionNext
 }
 
-func OpenVpnCheckForValidOpcode(opcode byte) bool {
+func OpenVPNCheckForValidOpcode(opcode byte) bool {
 	switch opcode {
-	case OpenVpnControlHardResetClientV1,
-		OpenVpnControlHardResetServerV1,
-		OpenVpnControlSoftResetV1,
-		OpenVpnControlV1,
-		OpenVpnAckV1,
-		OpenVpnDataV1,
-		OpenVpnControlHardResetClientV2,
-		OpenVpnControlHardResetServerV2,
-		OpenVpnDataV2,
-		OpenVpnControlHardResetClientV3,
-		OpenVpnControlWkcV1:
+	case OpenVPNControlHardResetClientV1,
+		OpenVPNControlHardResetServerV1,
+		OpenVPNControlSoftResetV1,
+		OpenVPNControlV1,
+		OpenVPNAckV1,
+		OpenVPNDataV1,
+		OpenVPNControlHardResetClientV2,
+		OpenVPNControlHardResetServerV2,
+		OpenVPNDataV2,
+		OpenVPNControlHardResetClientV3,
+		OpenVPNControlWkcV1:
 		return true
 	}
 	return false
