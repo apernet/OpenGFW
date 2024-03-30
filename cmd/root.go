@@ -87,7 +87,6 @@ var logFormatMap = map[string]zapcore.EncoderConfig{
 var analyzers = []analyzer.Analyzer{
 	&tcp.FETAnalyzer{},
 	&tcp.HTTPAnalyzer{},
-	&tcp.OpenVpnAnalyzer{},
 	&tcp.SocksAnalyzer{},
 	&tcp.SSHAnalyzer{},
 	&tcp.TLSAnalyzer{},
