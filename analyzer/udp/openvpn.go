@@ -5,11 +5,15 @@ import (
 	"github.com/apernet/OpenGFW/analyzer/utils"
 )
 
-var _ analyzer.UDPAnalyzer = (*OpenVpnAnalyzer)(nil)
-var _ analyzer.TCPAnalyzer = (*OpenVpnAnalyzer)(nil)
+var (
+	_ analyzer.UDPAnalyzer = (*OpenVpnAnalyzer)(nil)
+	_ analyzer.TCPAnalyzer = (*OpenVpnAnalyzer)(nil)
+)
 
-var _ analyzer.UDPStream = (*openVpnUdpStream)(nil)
-var _ analyzer.TCPStream = (*openVpnTcpStream)(nil)
+var (
+	_ analyzer.UDPStream = (*openVpnUdpStream)(nil)
+	_ analyzer.TCPStream = (*openVpnTcpStream)(nil)
+)
 
 // Ref paper:
 // https://www.usenix.org/system/files/sec22fall_xue-diwen.pdf
