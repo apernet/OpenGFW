@@ -206,8 +206,8 @@ func (o *openvpnUDPStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, 
 		cancelled, o.respDone = o.respLSM.Run()
 		if o.respUpdated {
 			update = &analyzer.PropUpdate{
-				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt},
+				Type: analyzer.PropUpdateReplace,
+				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt, "tx_pkt_cnt": o.txPktCnt},
 			}
 			o.respUpdated = false
 		}
@@ -216,8 +216,8 @@ func (o *openvpnUDPStream) Feed(rev bool, data []byte) (u *analyzer.PropUpdate, 
 		cancelled, o.reqDone = o.reqLSM.Run()
 		if o.reqUpdated {
 			update = &analyzer.PropUpdate{
-				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"tx_pkt_cnt": o.txPktCnt},
+				Type: analyzer.PropUpdateReplace,
+				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt, "tx_pkt_cnt": o.txPktCnt},
 			}
 			o.reqUpdated = false
 		}
@@ -296,8 +296,8 @@ func (o *openvpnTCPStream) Feed(rev, start, end bool, skip int, data []byte) (u 
 		cancelled, o.respDone = o.respLSM.Run()
 		if o.respUpdated {
 			update = &analyzer.PropUpdate{
-				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt},
+				Type: analyzer.PropUpdateReplace,
+				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt, "tx_pkt_cnt": o.txPktCnt},
 			}
 			o.respUpdated = false
 		}
@@ -308,7 +308,7 @@ func (o *openvpnTCPStream) Feed(rev, start, end bool, skip int, data []byte) (u 
 		if o.reqUpdated {
 			update = &analyzer.PropUpdate{
 				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"tx_pkt_cnt": o.txPktCnt},
+				M:    analyzer.PropMap{"rx_pkt_cnt": o.rxPktCnt, "tx_pkt_cnt": o.txPktCnt},
 			}
 			o.reqUpdated = false
 		}
