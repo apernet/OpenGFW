@@ -15,13 +15,25 @@ jobs:
       matrix:
         goos: [linux]
         goarch: ["386", amd64, arm64]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          goversion: "https://go.dev/dl/go1.22.0.linux-amd64.tar.gz"
-          binary_name: "OpenGFW"
-          extra_files: LICENSE README.md README.zh.md
+          go-version: "1.22"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p build
+          go build -o build/OpenGFW-${GOOS}-${GOARCH} -ldflags "-s -w" .
+
+      - name: Upload
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*
