@@ -21,8 +21,8 @@ Telegram group: https://t.me/OpGFW
 ## Features
 
 - Full IP/TCP reassembly, various protocol analyzers
-  - HTTP, TLS, QUIC, DNS, SSH, SOCKS4/5, WireGuard, and many more to come
-  - "Fully encrypted traffic" detection for Shadowsocks,
+  - HTTP, TLS, QUIC, DNS, SSH, SOCKS4/5, WireGuard, OpenVPN, and many more to come
+  - "Fully encrypted traffic" detection for Shadowsocks, VMess,
     etc. (https://gfw.report/publications/usenixsecurity23/en/)
   - Trojan (proxy protocol) detection
   - [WIP] Machine learning based traffic classification

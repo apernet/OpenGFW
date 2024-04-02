@@ -18,8 +18,8 @@ Telegram グループ: https://t.me/OpGFW
 ## 特徴
 
 - フル IP/TCP 再アセンブル、各種プロトコルアナライザー
-  - HTTP、TLS、QUIC、DNS、SSH、SOCKS4/5、WireGuard、その他多数
-  - Shadowsocks の「完全に暗号化されたトラフィック」の検出など (https://gfw.report/publications/usenixsecurity23/en/)
+  - HTTP、TLS、QUIC、DNS、SSH、SOCKS4/5、WireGuard、OpenVPN、その他多数
+  - Shadowsocks、VMess の「完全に暗号化されたトラフィック」の検出など (https://gfw.report/publications/usenixsecurity23/en/)
   - Trojan プロキシプロトコルの検出
   - [WIP] 機械学習に基づくトラフィック分類
 - IPv4 と IPv6 をフルサポート
