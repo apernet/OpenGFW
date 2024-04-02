@@ -18,8 +18,8 @@ Telegram 群组： https://t.me/OpGFW
 ## 功能
 
 - 完整的 IP/TCP 重组，各种协议解析器
-  - HTTP, TLS, QUIC, DNS, SSH, SOCKS4/5, WireGuard, 更多协议正在开发中
-  - Shadowsocks 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/zh/)
+  - HTTP, TLS, QUIC, DNS, SSH, SOCKS4/5, WireGuard, OpenVPN, 更多协议正在开发中
+  - Shadowsocks, VMess 等 "全加密流量" 检测 (https://gfw.report/publications/usenixsecurity23/zh/)
   - Trojan 协议检测
   - [开发中] 基于机器学习的流量分类
 - 同等支持 IPv4 和 IPv6
