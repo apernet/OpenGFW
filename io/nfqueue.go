@@ -55,7 +55,7 @@ func generateNftRules(local, rst bool) (*nftTableSpec, error) {
 			c.Rules = append(c.Rules, "ip protocol tcp ct mark $DROP_CTMARK counter reject with tcp reset")
 		}
 		c.Rules = append(c.Rules, "ct mark $DROP_CTMARK counter drop")
-		c.Rules = append(c.Rules, "counter queue num $QUEUE_NUM bypass")
+		c.Rules = append(c.Rules, "ip protocol tcp counter queue num $QUEUE_NUM bypass")
 	}
 	return table, nil
 }

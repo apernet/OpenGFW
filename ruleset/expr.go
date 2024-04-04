@@ -1,11 +1,15 @@
 package ruleset
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"reflect"
 	"strings"
+	"time"
+
+	"github.com/expr-lang/expr/builtin"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/ast"
@@ -104,6 +108,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	if err != nil {
 		return nil, err
 	}
+	funcMap := buildFunctionMap(geoMatcher)
 	// Compile all rules and build a map of analyzers that are used by the rules.
 	for _, rule := range rules {
 		if rule.Action == "" && !rule.Log {
@@ -118,13 +123,19 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			action = &a
 		}
 		visitor := &idVisitor{Variables: make(map[string]bool), Identifiers: make(map[string]bool)}
-		patcher := &idPatcher{}
+		patcher := &idPatcher{FuncMap: funcMap}
 		program, err := expr.Compile(rule.Expr,
 			func(c *conf.Config) {
 				c.Strict = false
 				c.Expect = reflect.Bool
 				c.Visitors = append(c.Visitors, visitor, patcher)
-				registerBuiltinFunctions(c.Functions, geoMatcher)
+				for name, f := range funcMap {
+					c.Functions[name] = &builtin.Function{
+						Name:  name,
+						Func:  f.Func,
+						Types: f.Types,
+					}
+				}
 			},
 		)
 		if err != nil {
@@ -138,24 +149,15 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			if isBuiltInAnalyzer(name) || visitor.Variables[name] {
 				continue
 			}
-			// Check if it's one of the built-in functions, and if so,
-			// skip it as an analyzer & do initialization if necessary.
-			switch name {
-			case "geoip":
-				if err := geoMatcher.LoadGeoIP(); err != nil {
-					return nil, fmt.Errorf("rule %q failed to load geoip: %w", rule.Name, err)
+			if f, ok := funcMap[name]; ok {
+				// Built-in function, initialize if necessary
+				if f.InitFunc != nil {
+					if err := f.InitFunc(); err != nil {
+						return nil, fmt.Errorf("rule %q failed to initialize function %q: %w", rule.Name, name, err)
+					}
 				}
-			case "geosite":
-				if err := geoMatcher.LoadGeoSite(); err != nil {
-					return nil, fmt.Errorf("rule %q failed to load geosite: %w", rule.Name, err)
-				}
-			case "cidr":
-				// No initialization needed for CIDR.
-			default:
-				a, ok := fullAnMap[name]
-				if !ok {
-					return nil, fmt.Errorf("rule %q uses unknown analyzer %q", rule.Name, name)
-				}
+			} else if a, ok := fullAnMap[name]; ok {
+				// Analyzer, add to dependency map
 				depAnMap[name] = a
 			}
 		}
@@ -189,30 +191,6 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		Logger:     config.Logger,
 		GeoMatcher: geoMatcher,
 	}, nil
-}
-
-func registerBuiltinFunctions(funcMap map[string]*ast.Function, geoMatcher *geo.GeoMatcher) {
-	funcMap["geoip"] = &ast.Function{
-		Name: "geoip",
-		Func: func(params ...any) (any, error) {
-			return geoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
-		},
-		Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoIp)},
-	}
-	funcMap["geosite"] = &ast.Function{
-		Name: "geosite",
-		Func: func(params ...any) (any, error) {
-			return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
-		},
-		Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoSite)},
-	}
-	funcMap["cidr"] = &ast.Function{
-		Name: "cidr",
-		Func: func(params ...any) (any, error) {
-			return builtins.MatchCIDR(params[0].(string), params[1].(*net.IPNet)), nil
-		},
-		Types: []reflect.Type{reflect.TypeOf((func(string, string) bool)(nil)), reflect.TypeOf(builtins.MatchCIDR)},
-	}
 }
 
 func streamInfoToExprEnv(info StreamInfo) map[string]interface{} {
@@ -299,29 +277,106 @@ func (v *idVisitor) Visit(node *ast.Node) {
 // idPatcher patches the AST during expr compilation, replacing certain values with
 // their internal representations for better runtime performance.
 type idPatcher struct {
-	Err error
+	FuncMap map[string]*Function
+	Err     error
 }
 
 func (p *idPatcher) Visit(node *ast.Node) {
 	switch (*node).(type) {
 	case *ast.CallNode:
 		callNode := (*node).(*ast.CallNode)
-		if callNode.Func == nil {
+		if callNode.Callee == nil {
 			// Ignore invalid call nodes
 			return
 		}
-		switch callNode.Func.Name {
-		case "cidr":
-			cidrStringNode, ok := callNode.Arguments[1].(*ast.StringNode)
-			if !ok {
-				return
+		if f, ok := p.FuncMap[callNode.Callee.String()]; ok {
+			if f.PatchFunc != nil {
+				if err := f.PatchFunc(&callNode.Arguments); err != nil {
+					p.Err = err
+					return
+				}
 			}
-			cidr, err := builtins.CompileCIDR(cidrStringNode.Value)
-			if err != nil {
-				p.Err = err
-				return
-			}
-			callNode.Arguments[1] = &ast.ConstantNode{Value: cidr}
 		}
+	}
+}
+
+type Function struct {
+	InitFunc  func() error
+	PatchFunc func(args *[]ast.Node) error
+	Func      func(params ...any) (any, error)
+	Types     []reflect.Type
+}
+
+func buildFunctionMap(geoMatcher *geo.GeoMatcher) map[string]*Function {
+	return map[string]*Function{
+		"geoip": {
+			InitFunc:  geoMatcher.LoadGeoIP,
+			PatchFunc: nil,
+			Func: func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
+			},
+			Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoIp)},
+		},
+		"geosite": {
+			InitFunc:  geoMatcher.LoadGeoSite,
+			PatchFunc: nil,
+			Func: func(params ...any) (any, error) {
+				return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
+			},
+			Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoSite)},
+		},
+		"cidr": {
+			InitFunc: nil,
+			PatchFunc: func(args *[]ast.Node) error {
+				cidrStringNode, ok := (*args)[1].(*ast.StringNode)
+				if !ok {
+					return fmt.Errorf("cidr: invalid argument type")
+				}
+				cidr, err := builtins.CompileCIDR(cidrStringNode.Value)
+				if err != nil {
+					return err
+				}
+				(*args)[1] = &ast.ConstantNode{Value: cidr}
+				return nil
+			},
+			Func: func(params ...any) (any, error) {
+				return builtins.MatchCIDR(params[0].(string), params[1].(*net.IPNet)), nil
+			},
+			Types: []reflect.Type{reflect.TypeOf((func(string, string) bool)(nil)), reflect.TypeOf(builtins.MatchCIDR)},
+		},
+		"lookup": {
+			InitFunc: nil,
+			PatchFunc: func(args *[]ast.Node) error {
+				if len(*args) < 2 {
+					// Second argument (DNS server) is optional
+					return nil
+				}
+				serverStr, ok := (*args)[1].(*ast.StringNode)
+				if !ok {
+					return fmt.Errorf("lookup: invalid argument type")
+				}
+				r := &net.Resolver{
+					Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+						return net.Dial(network, serverStr.Value)
+					},
+				}
+				(*args)[1] = &ast.ConstantNode{Value: r}
+				return nil
+			},
+			Func: func(params ...any) (any, error) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if len(params) < 2 {
+					return net.DefaultResolver.LookupHost(ctx, params[0].(string))
+				} else {
+					return params[1].(*net.Resolver).LookupHost(ctx, params[0].(string))
+				}
+			},
+			Types: []reflect.Type{
+				reflect.TypeOf((func(string, string) []string)(nil)),
+				reflect.TypeOf((func(string) []string)(nil)),
+				reflect.TypeOf((func(string, *net.Resolver) []string)(nil)),
+			},
+		},
 	}
 }
