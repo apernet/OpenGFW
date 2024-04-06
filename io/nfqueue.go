@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
@@ -50,12 +52,13 @@ func generateNftRules(local, rst bool) (*nftTableSpec, error) {
 	}
 	for i := range table.Chains {
 		c := &table.Chains[i]
+		c.Rules = append(c.Rules, "meta mark $ACCEPT_CTMARK ct mark set $ACCEPT_CTMARK") // Bypass protected connections
 		c.Rules = append(c.Rules, "ct mark $ACCEPT_CTMARK counter accept")
 		if rst {
 			c.Rules = append(c.Rules, "ip protocol tcp ct mark $DROP_CTMARK counter reject with tcp reset")
 		}
 		c.Rules = append(c.Rules, "ct mark $DROP_CTMARK counter drop")
-		c.Rules = append(c.Rules, "ip protocol tcp counter queue num $QUEUE_NUM bypass")
+		c.Rules = append(c.Rules, "counter queue num $QUEUE_NUM bypass")
 	}
 	return table, nil
 }
@@ -72,6 +75,8 @@ func generateIptRules(local, rst bool) ([]iptRule, error) {
 	}
 	rules := make([]iptRule, 0, 4*len(chains))
 	for _, chain := range chains {
+		// Bypass protected connections
+		rules = append(rules, iptRule{"filter", chain, []string{"-m", "mark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "CONNMARK", "--set-mark", strconv.Itoa(nfqueueConnMarkAccept)}})
 		rules = append(rules, iptRule{"filter", chain, []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "ACCEPT"}})
 		if rst {
 			rules = append(rules, iptRule{"filter", chain, []string{"-p", "tcp", "-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "REJECT", "--reject-with", "tcp-reset"}})
@@ -96,6 +101,8 @@ type nfqueuePacketIO struct {
 	// iptables not nil = use iptables instead of nftables
 	ipt4 *iptables.IPTables
 	ipt6 *iptables.IPTables
+
+	protectedDialer *net.Dialer
 }
 
 type NFQueuePacketIOConfig struct {
@@ -153,6 +160,18 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 		rst:   config.RST,
 		ipt4:  ipt4,
 		ipt6:  ipt6,
+		protectedDialer: &net.Dialer{
+			Control: func(network, address string, c syscall.RawConn) error {
+				var err error
+				cErr := c.Control(func(fd uintptr) {
+					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, nfqueueConnMarkAccept)
+				})
+				if cErr != nil {
+					return cErr
+				}
+				return err
+			},
+		},
 	}, nil
 }
 
@@ -237,6 +256,10 @@ func (n *nfqueuePacketIO) SetVerdict(p Packet, v Verdict, newPacket []byte) erro
 		// Invalid verdict, ignore for now
 		return nil
 	}
+}
+
+func (n *nfqueuePacketIO) ProtectedDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return n.protectedDialer.DialContext(ctx, network, address)
 }
 
 func (n *nfqueuePacketIO) Close() error {

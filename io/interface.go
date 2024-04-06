@@ -2,6 +2,7 @@ package io
 
 import (
 	"context"
+	"net"
 )
 
 type Verdict int
@@ -29,7 +30,6 @@ type Packet interface {
 
 // PacketCallback is called for each packet received.
 // Return false to "unregister" and stop receiving packets.
-// It must be safe for concurrent use.
 type PacketCallback func(Packet, error) bool
 
 type PacketIO interface {
@@ -39,6 +39,10 @@ type PacketIO interface {
 	Register(context.Context, PacketCallback) error
 	// SetVerdict sets the verdict for a packet.
 	SetVerdict(Packet, Verdict, []byte) error
+	// ProtectedDialContext is like net.DialContext, but the connection is "protected"
+	// in the sense that the packets sent/received through the connection must bypass
+	// the packet IO and not be processed by the callback.
+	ProtectedDialContext(ctx context.Context, network, address string) (net.Conn, error)
 	// Close closes the packet IO.
 	Close() error
 }

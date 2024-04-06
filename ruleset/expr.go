@@ -59,10 +59,9 @@ type compiledExprRule struct {
 var _ Ruleset = (*exprRuleset)(nil)
 
 type exprRuleset struct {
-	Rules      []compiledExprRule
-	Ans        []analyzer.Analyzer
-	Logger     Logger
-	GeoMatcher *geo.GeoMatcher
+	Rules  []compiledExprRule
+	Ans    []analyzer.Analyzer
+	Logger Logger
 }
 
 func (r *exprRuleset) Analyzers(info StreamInfo) []analyzer.Analyzer {
@@ -104,11 +103,7 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 	fullAnMap := analyzersToMap(ans)
 	fullModMap := modifiersToMap(mods)
 	depAnMap := make(map[string]analyzer.Analyzer)
-	geoMatcher, err := geo.NewGeoMatcher(config.GeoSiteFilename, config.GeoIpFilename)
-	if err != nil {
-		return nil, err
-	}
-	funcMap := buildFunctionMap(geoMatcher)
+	funcMap := buildFunctionMap(config)
 	// Compile all rules and build a map of analyzers that are used by the rules.
 	for _, rule := range rules {
 		if rule.Action == "" && !rule.Log {
@@ -186,10 +181,9 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 		depAns = append(depAns, a)
 	}
 	return &exprRuleset{
-		Rules:      compiledRules,
-		Ans:        depAns,
-		Logger:     config.Logger,
-		GeoMatcher: geoMatcher,
+		Rules:  compiledRules,
+		Ans:    depAns,
+		Logger: config.Logger,
 	}, nil
 }
 
@@ -307,7 +301,8 @@ type Function struct {
 	Types     []reflect.Type
 }
 
-func buildFunctionMap(geoMatcher *geo.GeoMatcher) map[string]*Function {
+func buildFunctionMap(config *BuiltinConfig) map[string]*Function {
+	geoMatcher := geo.NewGeoMatcher(config.GeoSiteFilename, config.GeoIpFilename)
 	return map[string]*Function{
 		"geoip": {
 			InitFunc:  geoMatcher.LoadGeoIP,
@@ -342,39 +337,41 @@ func buildFunctionMap(geoMatcher *geo.GeoMatcher) map[string]*Function {
 			Func: func(params ...any) (any, error) {
 				return builtins.MatchCIDR(params[0].(string), params[1].(*net.IPNet)), nil
 			},
-			Types: []reflect.Type{reflect.TypeOf((func(string, string) bool)(nil)), reflect.TypeOf(builtins.MatchCIDR)},
+			Types: []reflect.Type{reflect.TypeOf(builtins.MatchCIDR)},
 		},
 		"lookup": {
 			InitFunc: nil,
 			PatchFunc: func(args *[]ast.Node) error {
-				if len(*args) < 2 {
-					// Second argument (DNS server) is optional
-					return nil
-				}
-				serverStr, ok := (*args)[1].(*ast.StringNode)
-				if !ok {
-					return fmt.Errorf("lookup: invalid argument type")
+				var serverStr *ast.StringNode
+				if len(*args) > 1 {
+					// Has the optional server argument
+					var ok bool
+					serverStr, ok = (*args)[1].(*ast.StringNode)
+					if !ok {
+						return fmt.Errorf("lookup: invalid argument type")
+					}
 				}
 				r := &net.Resolver{
 					Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-						return net.Dial(network, serverStr.Value)
+						if serverStr != nil {
+							address = serverStr.Value
+						}
+						return config.ProtectedDialContext(ctx, network, address)
 					},
 				}
-				(*args)[1] = &ast.ConstantNode{Value: r}
+				if len(*args) > 1 {
+					(*args)[1] = &ast.ConstantNode{Value: r}
+				} else {
+					*args = append(*args, &ast.ConstantNode{Value: r})
+				}
 				return nil
 			},
 			Func: func(params ...any) (any, error) {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 				defer cancel()
-				if len(params) < 2 {
-					return net.DefaultResolver.LookupHost(ctx, params[0].(string))
-				} else {
-					return params[1].(*net.Resolver).LookupHost(ctx, params[0].(string))
-				}
+				return params[1].(*net.Resolver).LookupHost(ctx, params[0].(string))
 			},
 			Types: []reflect.Type{
-				reflect.TypeOf((func(string, string) []string)(nil)),
-				reflect.TypeOf((func(string) []string)(nil)),
 				reflect.TypeOf((func(string, *net.Resolver) []string)(nil)),
 			},
 		},

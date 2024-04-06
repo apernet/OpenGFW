@@ -14,14 +14,12 @@ type GeoMatcher struct {
 	ipMatcherLock   sync.Mutex
 }
 
-func NewGeoMatcher(geoSiteFilename, geoIpFilename string) (*GeoMatcher, error) {
-	geoLoader := NewDefaultGeoLoader(geoSiteFilename, geoIpFilename)
-
+func NewGeoMatcher(geoSiteFilename, geoIpFilename string) *GeoMatcher {
 	return &GeoMatcher{
-		geoLoader:      geoLoader,
+		geoLoader:      NewDefaultGeoLoader(geoSiteFilename, geoIpFilename),
 		geoSiteMatcher: make(map[string]hostMatcher),
 		geoIpMatcher:   make(map[string]hostMatcher),
-	}, nil
+	}
 }
 
 func (g *GeoMatcher) MatchGeoIp(ip, condition string) bool {
