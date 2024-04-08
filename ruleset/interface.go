@@ -1,6 +1,7 @@
 package ruleset
 
 import (
+	"context"
 	"net"
 	"strconv"
 
@@ -100,7 +101,8 @@ type Logger interface {
 }
 
 type BuiltinConfig struct {
-	Logger          Logger
-	GeoSiteFilename string
-	GeoIpFilename   string
+	Logger               Logger
+	GeoSiteFilename      string
+	GeoIpFilename        string
+	ProtectedDialContext func(ctx context.Context, network, address string) (net.Conn, error)
 }

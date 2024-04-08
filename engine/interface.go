@@ -18,7 +18,7 @@ type Engine interface {
 // Config is the configuration for the engine.
 type Config struct {
 	Logger  Logger
-	IOs     []io.PacketIO
+	IO      io.PacketIO
 	Ruleset ruleset.Ruleset
 
 	Workers                          int // Number of workers. Zero or negative means auto (number of CPU cores).

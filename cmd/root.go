@@ -204,7 +204,7 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 	if err != nil {
 		return configError{Field: "io", Err: err}
 	}
-	config.IOs = []io.PacketIO{nfio}
+	config.IO = nfio
 	return nil
 }
 
@@ -247,12 +247,7 @@ func runMain(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.Fatal("failed to parse config", zap.Error(err))
 	}
-	defer func() {
-		// Make sure to close all IOs on exit
-		for _, i := range engineConfig.IOs {
-			_ = i.Close()
-		}
-	}()
+	defer engineConfig.IO.Close() // Make sure to close IO on exit
 
 	// Ruleset
 	rawRs, err := ruleset.ExprRulesFromYAML(args[0])
@@ -260,9 +255,10 @@ func runMain(cmd *cobra.Command, args []string) {
 		logger.Fatal("failed to load rules", zap.Error(err))
 	}
 	rsConfig := &ruleset.BuiltinConfig{
-		Logger:          &rulesetLogger{},
-		GeoSiteFilename: config.Ruleset.GeoSite,
-		GeoIpFilename:   config.Ruleset.GeoIp,
+		Logger:               &rulesetLogger{},
+		GeoSiteFilename:      config.Ruleset.GeoSite,
+		GeoIpFilename:        config.Ruleset.GeoIp,
+		ProtectedDialContext: engineConfig.IO.ProtectedDialContext,
 	}
 	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
 	if err != nil {
