@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	"github.com/apernet/OpenGFW/io"
 	"github.com/apernet/OpenGFW/ruleset"
@@ -14,9 +15,12 @@ import (
 
 const (
 	defaultChanSize                         = 64
-	defaultTCPMaxBufferedPagesTotal         = 4096
-	defaultTCPMaxBufferedPagesPerConnection = 64
+	defaultTCPMaxBufferedPagesTotal         = 65536
+	defaultTCPMaxBufferedPagesPerConnection = 16
+	defaultTCPTimeout                       = 10 * time.Minute
 	defaultUDPMaxStreams                    = 4096
+
+	tcpFlushInterval = 1 * time.Minute
 )
 
 type workerPacket struct {
@@ -33,6 +37,7 @@ type worker struct {
 	tcpStreamFactory *tcpStreamFactory
 	tcpStreamPool    *reassembly.StreamPool
 	tcpAssembler     *reassembly.Assembler
+	tcpTimeout       time.Duration
 
 	udpStreamFactory *udpStreamFactory
 	udpStreamManager *udpStreamManager
@@ -47,6 +52,7 @@ type workerConfig struct {
 	Ruleset                    ruleset.Ruleset
 	TCPMaxBufferedPagesTotal   int
 	TCPMaxBufferedPagesPerConn int
+	TCPTimeout                 time.Duration
 	UDPMaxStreams              int
 }
 
@@ -59,6 +65,9 @@ func (c *workerConfig) fillDefaults() {
 	}
 	if c.TCPMaxBufferedPagesPerConn <= 0 {
 		c.TCPMaxBufferedPagesPerConn = defaultTCPMaxBufferedPagesPerConnection
+	}
+	if c.TCPTimeout <= 0 {
+		c.TCPTimeout = defaultTCPTimeout
 	}
 	if c.UDPMaxStreams <= 0 {
 		c.UDPMaxStreams = defaultUDPMaxStreams
@@ -98,6 +107,7 @@ func newWorker(config workerConfig) (*worker, error) {
 		tcpStreamFactory:   tcpSF,
 		tcpStreamPool:      tcpStreamPool,
 		tcpAssembler:       tcpAssembler,
+		tcpTimeout:         config.TCPTimeout,
 		udpStreamFactory:   udpSF,
 		udpStreamManager:   udpSM,
 		modSerializeBuffer: gopacket.NewSerializeBuffer(),
@@ -111,6 +121,10 @@ func (w *worker) Feed(p *workerPacket) {
 func (w *worker) Run(ctx context.Context) {
 	w.logger.WorkerStart(w.id)
 	defer w.logger.WorkerStop(w.id)
+
+	tcpFlushTicker := time.NewTicker(tcpFlushInterval)
+	defer tcpFlushTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -122,6 +136,8 @@ func (w *worker) Run(ctx context.Context) {
 			}
 			v, b := w.handle(wPkt.StreamID, wPkt.Packet)
 			_ = wPkt.SetVerdict(v, b)
+		case <-tcpFlushTicker.C:
+			w.flushTCP(w.tcpTimeout)
 		}
 	}
 }
@@ -174,6 +190,11 @@ func (w *worker) handleTCP(ipFlow gopacket.Flow, pMeta *gopacket.PacketMetadata,
 	}
 	w.tcpAssembler.AssembleWithContext(ipFlow, tcp, ctx)
 	return io.Verdict(ctx.Verdict)
+}
+
+func (w *worker) flushTCP(timeout time.Duration) {
+	flushed, closed := w.tcpAssembler.FlushCloseOlderThan(time.Now().Add(-timeout))
+	w.logger.TCPFlush(w.id, flushed, closed)
 }
 
 func (w *worker) handleUDP(streamID uint32, ipFlow gopacket.Flow, udp *layers.UDP) (io.Verdict, []byte) {
