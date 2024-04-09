@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/analyzer/tcp"
@@ -176,11 +177,12 @@ type cliConfigIO struct {
 }
 
 type cliConfigWorkers struct {
-	Count                      int `mapstructure:"count"`
-	QueueSize                  int `mapstructure:"queueSize"`
-	TCPMaxBufferedPagesTotal   int `mapstructure:"tcpMaxBufferedPagesTotal"`
-	TCPMaxBufferedPagesPerConn int `mapstructure:"tcpMaxBufferedPagesPerConn"`
-	UDPMaxStreams              int `mapstructure:"udpMaxStreams"`
+	Count                      int           `mapstructure:"count"`
+	QueueSize                  int           `mapstructure:"queueSize"`
+	TCPMaxBufferedPagesTotal   int           `mapstructure:"tcpMaxBufferedPagesTotal"`
+	TCPMaxBufferedPagesPerConn int           `mapstructure:"tcpMaxBufferedPagesPerConn"`
+	TCPTimeout                 time.Duration `mapstructure:"tcpTimeout"`
+	UDPMaxStreams              int           `mapstructure:"udpMaxStreams"`
 }
 
 type cliConfigRuleset struct {
@@ -213,6 +215,7 @@ func (c *cliConfig) fillWorkers(config *engine.Config) error {
 	config.WorkerQueueSize = c.Workers.QueueSize
 	config.WorkerTCPMaxBufferedPagesTotal = c.Workers.TCPMaxBufferedPagesTotal
 	config.WorkerTCPMaxBufferedPagesPerConn = c.Workers.TCPMaxBufferedPagesPerConn
+	config.WorkerTCPTimeout = c.Workers.TCPTimeout
 	config.WorkerUDPMaxStreams = c.Workers.UDPMaxStreams
 	return nil
 }
@@ -340,12 +343,26 @@ func (l *engineLogger) TCPStreamPropUpdate(info ruleset.StreamInfo, close bool) 
 }
 
 func (l *engineLogger) TCPStreamAction(info ruleset.StreamInfo, action ruleset.Action, noMatch bool) {
-	logger.Info("TCP stream action",
-		zap.Int64("id", info.ID),
-		zap.String("src", info.SrcString()),
-		zap.String("dst", info.DstString()),
-		zap.String("action", action.String()),
-		zap.Bool("noMatch", noMatch))
+	if noMatch {
+		logger.Debug("TCP stream no match",
+			zap.Int64("id", info.ID),
+			zap.String("src", info.SrcString()),
+			zap.String("dst", info.DstString()),
+			zap.String("action", action.String()))
+	} else {
+		logger.Info("TCP stream action",
+			zap.Int64("id", info.ID),
+			zap.String("src", info.SrcString()),
+			zap.String("dst", info.DstString()),
+			zap.String("action", action.String()))
+	}
+}
+
+func (l *engineLogger) TCPFlush(workerID, flushed, closed int) {
+	logger.Debug("TCP flush",
+		zap.Int("workerID", workerID),
+		zap.Int("flushed", flushed),
+		zap.Int("closed", closed))
 }
 
 func (l *engineLogger) UDPStreamNew(workerID int, info ruleset.StreamInfo) {
@@ -366,12 +383,19 @@ func (l *engineLogger) UDPStreamPropUpdate(info ruleset.StreamInfo, close bool) 
 }
 
 func (l *engineLogger) UDPStreamAction(info ruleset.StreamInfo, action ruleset.Action, noMatch bool) {
-	logger.Info("UDP stream action",
-		zap.Int64("id", info.ID),
-		zap.String("src", info.SrcString()),
-		zap.String("dst", info.DstString()),
-		zap.String("action", action.String()),
-		zap.Bool("noMatch", noMatch))
+	if noMatch {
+		logger.Debug("UDP stream no match",
+			zap.Int64("id", info.ID),
+			zap.String("src", info.SrcString()),
+			zap.String("dst", info.DstString()),
+			zap.String("action", action.String()))
+	} else {
+		logger.Info("UDP stream action",
+			zap.Int64("id", info.ID),
+			zap.String("src", info.SrcString()),
+			zap.String("dst", info.DstString()),
+			zap.String("action", action.String()))
+	}
 }
 
 func (l *engineLogger) ModifyError(info ruleset.StreamInfo, err error) {
