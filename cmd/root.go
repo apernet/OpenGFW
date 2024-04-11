@@ -17,6 +17,7 @@ import (
 	"github.com/apernet/OpenGFW/modifier"
 	modUDP "github.com/apernet/OpenGFW/modifier/udp"
 	"github.com/apernet/OpenGFW/ruleset"
+	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -259,8 +260,7 @@ func runMain(cmd *cobra.Command, args []string) {
 	}
 	rsConfig := &ruleset.BuiltinConfig{
 		Logger:               &rulesetLogger{},
-		GeoSiteFilename:      config.Ruleset.GeoSite,
-		GeoIpFilename:        config.Ruleset.GeoIp,
+		GeoMatcher:           geo.NewGeoMatcher(config.Ruleset.GeoSite, config.Ruleset.GeoIp),
 		ProtectedDialContext: engineConfig.IO.ProtectedDialContext,
 	}
 	rs, err := ruleset.CompileExprRules(rawRs, analyzers, modifiers, rsConfig)
