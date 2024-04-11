@@ -7,6 +7,7 @@ import (
 
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
+	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 )
 
 type Action int
@@ -102,7 +103,6 @@ type Logger interface {
 
 type BuiltinConfig struct {
 	Logger               Logger
-	GeoSiteFilename      string
-	GeoIpFilename        string
+	GeoMatcher           *geo.GeoMatcher
 	ProtectedDialContext func(ctx context.Context, network, address string) (net.Conn, error)
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/apernet/OpenGFW/analyzer"
 	"github.com/apernet/OpenGFW/modifier"
 	"github.com/apernet/OpenGFW/ruleset/builtins"
-	"github.com/apernet/OpenGFW/ruleset/builtins/geo"
 )
 
 // ExprRule is the external representation of an expression rule.
@@ -302,23 +301,22 @@ type Function struct {
 }
 
 func buildFunctionMap(config *BuiltinConfig) map[string]*Function {
-	geoMatcher := geo.NewGeoMatcher(config.GeoSiteFilename, config.GeoIpFilename)
 	return map[string]*Function{
 		"geoip": {
-			InitFunc:  geoMatcher.LoadGeoIP,
+			InitFunc:  config.GeoMatcher.LoadGeoIP,
 			PatchFunc: nil,
 			Func: func(params ...any) (any, error) {
-				return geoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
+				return config.GeoMatcher.MatchGeoIp(params[0].(string), params[1].(string)), nil
 			},
-			Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoIp)},
+			Types: []reflect.Type{reflect.TypeOf(config.GeoMatcher.MatchGeoIp)},
 		},
 		"geosite": {
-			InitFunc:  geoMatcher.LoadGeoSite,
+			InitFunc:  config.GeoMatcher.LoadGeoSite,
 			PatchFunc: nil,
 			Func: func(params ...any) (any, error) {
-				return geoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
+				return config.GeoMatcher.MatchGeoSite(params[0].(string), params[1].(string)), nil
 			},
-			Types: []reflect.Type{reflect.TypeOf(geoMatcher.MatchGeoSite)},
+			Types: []reflect.Type{reflect.TypeOf(config.GeoMatcher.MatchGeoSite)},
 		},
 		"cidr": {
 			InitFunc: nil,
