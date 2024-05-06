@@ -102,9 +102,11 @@ func (e *engine) dispatch(p io.Packet) bool {
 		_ = e.io.SetVerdict(p, io.VerdictAcceptStream, nil)
 		return true
 	}
+	// Convert to gopacket.Packet
+	packet := gopacket.NewPacket(data, layerType, gopacket.DecodeOptions{Lazy: true, NoCopy: true})
+	packet.Metadata().Timestamp = p.Timestamp()
 	// Load balance by stream ID
 	index := p.StreamID() % uint32(len(e.workers))
-	packet := gopacket.NewPacket(data, layerType, gopacket.DecodeOptions{Lazy: true, NoCopy: true})
 	e.workers[index].Feed(&workerPacket{
 		StreamID: p.StreamID(),
 		Packet:   packet,
