@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/florianl/go-nfqueue"
@@ -189,6 +190,12 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 				streamID: ctIDFromCtBytes(*a.Ct),
 				data:     *a.Payload,
 			}
+			// Use timestamp from attribute if available, otherwise use current time as fallback
+			if a.Timestamp != nil {
+				p.timestamp = *a.Timestamp
+			} else {
+				p.timestamp = time.Now()
+			}
 			return okBoolToInt(cb(p, nil))
 		},
 		func(e error) int {
@@ -312,13 +319,18 @@ func (n *nfqueuePacketIO) setupIpt(local, rst, remove bool) error {
 var _ Packet = (*nfqueuePacket)(nil)
 
 type nfqueuePacket struct {
-	id       uint32
-	streamID uint32
-	data     []byte
+	id        uint32
+	streamID  uint32
+	timestamp time.Time
+	data      []byte
 }
 
 func (p *nfqueuePacket) StreamID() uint32 {
 	return p.streamID
+}
+
+func (p *nfqueuePacket) Timestamp() time.Time {
+	return p.timestamp
 }
 
 func (p *nfqueuePacket) Data() []byte {

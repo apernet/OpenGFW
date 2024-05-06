@@ -3,6 +3,7 @@ package io
 import (
 	"context"
 	"net"
+	"time"
 )
 
 type Verdict int
@@ -24,6 +25,8 @@ const (
 type Packet interface {
 	// StreamID is the ID of the stream the packet belongs to.
 	StreamID() uint32
+	// Timestamp is the time the packet was received.
+	Timestamp() time.Time
 	// Data is the raw packet data, starting with the IP header.
 	Data() []byte
 }
