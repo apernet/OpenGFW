@@ -137,7 +137,6 @@ func initConfig() {
 	}
 
 	viper.SetDefault("replay.realtime", true)
-	viper.SetDefault("replay.replayDelay", 10 * time.Millisecond)
 }
 
 func initLogger() {
@@ -185,7 +184,6 @@ type cliConfigIO struct {
 
 type cliConfigReplay struct {
 	Realtime    bool          `mapstructure:"realtime"`
-	ReplayDelay time.Duration `mapstructure:"replayDelay"`
 }
 
 type cliConfigWorkers struct {
@@ -216,7 +214,6 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 		ioImpl, err = io.NewPcapPacketIO(io.PcapPacketIOConfig{
 			PcapFile:    pcapFile,
 			Realtime:    c.Replay.Realtime,
-			ReplayDelay: c.Replay.ReplayDelay,
 		})
 	} else {
 		// Setup IO for nfqueue

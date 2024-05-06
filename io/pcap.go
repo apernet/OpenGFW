@@ -24,7 +24,6 @@ type pcapPacketIO struct {
 type PcapPacketIOConfig struct {
 	PcapFile    string
 	Realtime    bool
-	ReplayDelay time.Duration
 }
 
 func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
@@ -33,8 +32,6 @@ func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	print(config.ReplayDelay)
 
 	return &pcapPacketIO{
 		pcap:     handle,
@@ -58,8 +55,9 @@ func (p *pcapPacketIO) Register(ctx context.Context, cb PacketCallback) error {
 				id := crc32.Checksum([]byte(strings.Join(endpoints, ",")), crc32.IEEETable)
 
 				cb(&pcapPacket{
-					streamID: id,
-					data:     packet.LinkLayer().LayerPayload(),
+					streamID:  id,
+					timestamp: packet.Metadata().Timestamp,
+					data:      packet.LinkLayer().LayerPayload(),
 				}, nil)
 			}
 		}
@@ -91,10 +89,8 @@ func (p *pcapPacketIO) Close() error {
 
 // Intentionally slow down the replay
 // In realtime mode, this is to match the timestamps in the capture
-// In non realtime mode, this helps to avoid flooding the workers
 func (p *pcapPacketIO) wait(packet gopacket.Packet) error {
 	if !p.config.Realtime {
-		time.Sleep(p.config.ReplayDelay)
 		return nil
 	}
 
@@ -112,15 +108,19 @@ func (p *pcapPacketIO) wait(packet gopacket.Packet) error {
 var _ Packet = (*pcapPacket)(nil)
 
 type pcapPacket struct {
-	streamID uint32
-	data     []byte
+	streamID  uint32
+	timestamp time.Time
+	data      []byte
 }
 
 func (p *pcapPacket) StreamID() uint32 {
 	return p.streamID
 }
 
+func (p *pcapPacket) Timestamp() time.Time {
+	return p.timestamp
+}
+
 func (p *pcapPacket) Data() []byte {
 	return p.data
 }
-
