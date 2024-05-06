@@ -43,6 +43,7 @@ var logger *zap.Logger
 // Flags
 var (
 	cfgFile   string
+	pcapFile  string
 	logLevel  string
 	logFormat string
 )
@@ -118,6 +119,7 @@ func init() {
 
 func initFlags() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file")
+	rootCmd.PersistentFlags().StringVarP(&pcapFile, "pcap", "p", "", "pcap file (optional)")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", envOrDefaultString(appLogLevelEnv, "info"), "log level")
 	rootCmd.PersistentFlags().StringVarP(&logFormat, "log-format", "f", envOrDefaultString(appLogFormatEnv, "console"), "log format")
 }
@@ -133,6 +135,9 @@ func initConfig() {
 		viper.AddConfigPath("$HOME/.opengfw")
 		viper.AddConfigPath("/etc/opengfw")
 	}
+
+	viper.SetDefault("replay.realtime", true)
+	viper.SetDefault("replay.replayDelay", 10 * time.Millisecond)
 }
 
 func initLogger() {
@@ -167,6 +172,7 @@ type cliConfig struct {
 	IO      cliConfigIO      `mapstructure:"io"`
 	Workers cliConfigWorkers `mapstructure:"workers"`
 	Ruleset cliConfigRuleset `mapstructure:"ruleset"`
+	Replay  cliConfigReplay  `mapstructure:"replay"`
 }
 
 type cliConfigIO struct {
@@ -175,6 +181,11 @@ type cliConfigIO struct {
 	WriteBuffer int    `mapstructure:"sndBuf"`
 	Local       bool   `mapstructure:"local"`
 	RST         bool   `mapstructure:"rst"`
+}
+
+type cliConfigReplay struct {
+	Realtime    bool          `mapstructure:"realtime"`
+	ReplayDelay time.Duration `mapstructure:"replayDelay"`
 }
 
 type cliConfigWorkers struct {
@@ -197,17 +208,31 @@ func (c *cliConfig) fillLogger(config *engine.Config) error {
 }
 
 func (c *cliConfig) fillIO(config *engine.Config) error {
-	nfio, err := io.NewNFQueuePacketIO(io.NFQueuePacketIOConfig{
-		QueueSize:   c.IO.QueueSize,
-		ReadBuffer:  c.IO.ReadBuffer,
-		WriteBuffer: c.IO.WriteBuffer,
-		Local:       c.IO.Local,
-		RST:         c.IO.RST,
-	})
+	var ioImpl io.PacketIO
+	var err error
+	if pcapFile != "" {
+		// Setup IO for pcap file replay
+		logger.Info("replaying from pcap file", zap.String("pcap file", pcapFile))
+		ioImpl, err = io.NewPcapPacketIO(io.PcapPacketIOConfig{
+			PcapFile:    pcapFile,
+			Realtime:    c.Replay.Realtime,
+			ReplayDelay: c.Replay.ReplayDelay,
+		})
+	} else {
+		// Setup IO for nfqueue
+		ioImpl, err = io.NewNFQueuePacketIO(io.NFQueuePacketIOConfig{
+			QueueSize:   c.IO.QueueSize,
+			ReadBuffer:  c.IO.ReadBuffer,
+			WriteBuffer: c.IO.WriteBuffer,
+			Local:       c.IO.Local,
+			RST:         c.IO.RST,
+		})
+	}
+
 	if err != nil {
 		return configError{Field: "io", Err: err}
 	}
-	config.IO = nfio
+	config.IO = ioImpl
 	return nil
 }
 
