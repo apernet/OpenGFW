@@ -19,6 +19,8 @@ type pcapPacketIO struct {
 	lastTime *time.Time
 	ioCancel context.CancelFunc
 	config   PcapPacketIOConfig
+
+	dialer   *net.Dialer
 }
 
 type PcapPacketIOConfig struct {
@@ -38,6 +40,7 @@ func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
 		lastTime: nil,
 		ioCancel: nil,
 		config:   config,
+		dialer:   &net.Dialer{},
 	}, nil
 }
 
@@ -70,8 +73,9 @@ func (p *pcapPacketIO) Register(ctx context.Context, cb PacketCallback) error {
 	return nil
 }
 
+// A normal dialer is sufficient as pcap IO does not mess up with the networking
 func (p *pcapPacketIO) ProtectedDialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	return nil, nil
+	return p.dialer.DialContext(ctx, network, address)
 }
 
 func (p *pcapPacketIO) SetVerdict(pkt Packet, v Verdict, newPacket []byte) error {
@@ -84,6 +88,7 @@ func (p *pcapPacketIO) SetCancelFunc(cancelFunc context.CancelFunc) error {
 }
 
 func (p *pcapPacketIO) Close() error {
+	p.pcap.Close()
 	return nil
 }
 
