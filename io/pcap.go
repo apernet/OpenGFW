@@ -20,17 +20,16 @@ type pcapPacketIO struct {
 	ioCancel context.CancelFunc
 	config   PcapPacketIOConfig
 
-	dialer   *net.Dialer
+	dialer *net.Dialer
 }
 
 type PcapPacketIOConfig struct {
-	PcapFile    string
-	Realtime    bool
+	PcapFile string
+	Realtime bool
 }
 
 func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
 	handle, err := pcap.OpenOffline(config.PcapFile)
-
 	if err != nil {
 		return nil, err
 	}

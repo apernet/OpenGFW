@@ -183,7 +183,7 @@ type cliConfigIO struct {
 }
 
 type cliConfigReplay struct {
-	Realtime    bool          `mapstructure:"realtime"`
+	Realtime bool `mapstructure:"realtime"`
 }
 
 type cliConfigWorkers struct {
@@ -212,8 +212,8 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 		// Setup IO for pcap file replay
 		logger.Info("replaying from pcap file", zap.String("pcap file", pcapFile))
 		ioImpl, err = io.NewPcapPacketIO(io.PcapPacketIOConfig{
-			PcapFile:    pcapFile,
-			Realtime:    c.Replay.Realtime,
+			PcapFile: pcapFile,
+			Realtime: c.Replay.Realtime,
 		})
 	} else {
 		// Setup IO for nfqueue
