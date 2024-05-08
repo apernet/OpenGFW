@@ -17,11 +17,11 @@ import (
 var _ PacketIO = (*pcapPacketIO)(nil)
 
 type pcapPacketIO struct {
-	pcapFile io.ReadCloser
-	pcap     *pcapgo.Reader
-	lastTime *time.Time
-	ioCancel context.CancelFunc
-	config   PcapPacketIOConfig
+	pcapFile   io.ReadCloser
+	pcap       *pcapgo.Reader
+	timeOffset *time.Duration
+	ioCancel   context.CancelFunc
+	config     PcapPacketIOConfig
 
 	dialer *net.Dialer
 }
@@ -43,12 +43,12 @@ func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
 	}
 
 	return &pcapPacketIO{
-		pcapFile: pcapFile,
-		pcap:     handle,
-		lastTime: nil,
-		ioCancel: nil,
-		config:   config,
-		dialer:   &net.Dialer{},
+		pcapFile:   pcapFile,
+		pcap:       handle,
+		timeOffset: nil,
+		ioCancel:   nil,
+		config:     config,
+		dialer:     &net.Dialer{},
 	}, nil
 }
 
@@ -101,20 +101,18 @@ func (p *pcapPacketIO) Close() error {
 
 // Intentionally slow down the replay
 // In realtime mode, this is to match the timestamps in the capture
-func (p *pcapPacketIO) wait(packet gopacket.Packet) error {
+func (p *pcapPacketIO) wait(packet gopacket.Packet) {
 	if !p.config.Realtime {
-		return nil
+		return
 	}
 
-	if p.lastTime == nil {
-		p.lastTime = &packet.Metadata().Timestamp
+	if p.timeOffset == nil {
+		offset := time.Since(packet.Metadata().Timestamp)
+		p.timeOffset = &offset
 	} else {
-		t := packet.Metadata().Timestamp.Sub(*p.lastTime)
+		t := time.Until(packet.Metadata().Timestamp.Add(*p.timeOffset))
 		time.Sleep(t)
-		p.lastTime = &packet.Metadata().Timestamp
 	}
-
-	return nil
 }
 
 var _ Packet = (*pcapPacket)(nil)
