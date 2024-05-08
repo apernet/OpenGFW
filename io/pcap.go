@@ -3,19 +3,22 @@ package io
 import (
 	"context"
 	"hash/crc32"
+	"io"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 )
 
 var _ PacketIO = (*pcapPacketIO)(nil)
 
 type pcapPacketIO struct {
-	pcap     *pcap.Handle
+	pcapFile io.ReadCloser
+	pcap     *pcapgo.Reader
 	lastTime *time.Time
 	ioCancel context.CancelFunc
 	config   PcapPacketIOConfig
@@ -29,12 +32,18 @@ type PcapPacketIOConfig struct {
 }
 
 func NewPcapPacketIO(config PcapPacketIOConfig) (PacketIO, error) {
-	handle, err := pcap.OpenOffline(config.PcapFile)
+	pcapFile, err := os.Open(config.PcapFile)
+	if err != nil {
+		return nil, err
+	}
+
+	handle, err := pcapgo.NewReader(pcapFile)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pcapPacketIO{
+		pcapFile: pcapFile,
 		pcap:     handle,
 		lastTime: nil,
 		ioCancel: nil,
@@ -87,8 +96,7 @@ func (p *pcapPacketIO) SetCancelFunc(cancelFunc context.CancelFunc) error {
 }
 
 func (p *pcapPacketIO) Close() error {
-	p.pcap.Close()
-	return nil
+	return p.pcapFile.Close()
 }
 
 // Intentionally slow down the replay
