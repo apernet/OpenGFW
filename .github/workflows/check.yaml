@@ -23,6 +23,9 @@ jobs:
         with:
           go-version: 'stable'
 
+      - name: Install pcap
+        run: sudo apt install -y libpcap-dev
+
       - run: go vet ./...
 
       - name: staticcheck
