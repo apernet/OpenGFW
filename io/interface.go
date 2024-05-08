@@ -48,6 +48,9 @@ type PacketIO interface {
 	ProtectedDialContext(ctx context.Context, network, address string) (net.Conn, error)
 	// Close closes the packet IO.
 	Close() error
+	// SetCancelFunc gives packet IO access to context cancel function, enabling it to
+	// trigger a shutdown
+	SetCancelFunc(cancelFunc context.CancelFunc) error
 }
 
 type ErrInvalidPacket struct {
