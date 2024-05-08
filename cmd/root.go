@@ -135,8 +135,6 @@ func initConfig() {
 		viper.AddConfigPath("$HOME/.opengfw")
 		viper.AddConfigPath("/etc/opengfw")
 	}
-
-	viper.SetDefault("replay.realtime", true)
 }
 
 func initLogger() {
