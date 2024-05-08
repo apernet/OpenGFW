@@ -28,6 +28,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
         run: |
           mkdir -p build
           go build -o build/OpenGFW-${GOOS}-${GOARCH} -ldflags "-s -w" .
