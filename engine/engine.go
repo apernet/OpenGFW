@@ -58,12 +58,17 @@ func (e *engine) UpdateRuleset(r ruleset.Ruleset) error {
 }
 
 func (e *engine) Run(ctx context.Context) error {
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	defer workerCancel() // Stop workers
+
+	// Register IO shutdown
 	ioCtx, ioCancel := context.WithCancel(ctx)
-	defer ioCancel() // Stop workers & IO
+	e.io.SetCancelFunc(ioCancel)
+	defer ioCancel() // Stop IO
 
 	// Start workers
 	for _, w := range e.workers {
-		go w.Run(ioCtx)
+		go w.Run(workerCtx)
 	}
 
 	// Register IO callback
@@ -84,6 +89,8 @@ func (e *engine) Run(ctx context.Context) error {
 	case err := <-errChan:
 		return err
 	case <-ctx.Done():
+		return nil
+	case <-ioCtx.Done():
 		return nil
 	}
 }

@@ -281,6 +281,11 @@ func (n *nfqueuePacketIO) Close() error {
 	return n.n.Close()
 }
 
+// nfqueue IO does not issue shutdown
+func (n *nfqueuePacketIO) SetCancelFunc(cancelFunc context.CancelFunc) error {
+	return nil
+}
+
 func (n *nfqueuePacketIO) setupNft(local, rst, remove bool) error {
 	rules, err := generateNftRules(local, rst)
 	if err != nil {
