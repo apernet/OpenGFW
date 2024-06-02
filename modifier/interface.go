@@ -4,7 +4,7 @@ type Modifier interface {
 	// Name returns the name of the modifier.
 	Name() string
 	// New returns a new modifier instance.
-	New(args map[string]interface{}) (Instance, error)
+	New(args map[string][]interface{}) (Instance, error)
 }
 
 type Instance interface{}
