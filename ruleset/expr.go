@@ -32,8 +32,8 @@ type ExprRule struct {
 }
 
 type ModifierEntry struct {
-	Name string                   `yaml:"name"`
-	Args map[string][]interface{} `yaml:"args"`
+	Name string                 `yaml:"name"`
+	Args map[string]interface{} `yaml:"args"`
 }
 
 func ExprRulesFromYAML(file string) ([]ExprRule, error) {
