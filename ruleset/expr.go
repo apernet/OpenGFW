@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/apernet/OpenGFW/analyzer"
+	"github.com/apernet/OpenGFW/analyzer/tcp"
 	"github.com/apernet/OpenGFW/modifier"
 	"github.com/apernet/OpenGFW/ruleset/builtins"
 )
@@ -153,6 +154,9 @@ func CompileExprRules(rules []ExprRule, ans []analyzer.Analyzer, mods []modifier
 			} else if a, ok := fullAnMap[name]; ok {
 				// Analyzer, add to dependency map
 				depAnMap[name] = a
+				if err:= analyzersInit(a); err != nil {
+					return nil, err
+				}
 			}
 		}
 		cr := compiledExprRule{
@@ -240,6 +244,17 @@ func analyzersToMap(ans []analyzer.Analyzer) map[string]analyzer.Analyzer {
 		anMap[a.Name()] = a
 	}
 	return anMap
+}
+
+// analyzersInit invokes custom analyzer init logics
+func analyzersInit(a analyzer.Analyzer) error {
+	switch impl := a.(type) {
+	case *tcp.TorAnalyzer:
+		if err := impl.Init(); err != nil {
+			return err
+		} 
+	}
+	return nil
 }
 
 // modifiersToMap converts a list of modifiers to a map of name -> modifier.
