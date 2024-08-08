@@ -174,6 +174,8 @@ type cliConfig struct {
 
 type cliConfigIO struct {
 	QueueSize   uint32 `mapstructure:"queueSize"`
+	QueueNum    uint16 `mapstructure:"queueNum"`
+	Table       string `mapstructure:"table"`
 	ReadBuffer  int    `mapstructure:"rcvBuf"`
 	WriteBuffer int    `mapstructure:"sndBuf"`
 	Local       bool   `mapstructure:"local"`
@@ -221,6 +223,8 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 			WriteBuffer: c.IO.WriteBuffer,
 			Local:       c.IO.Local,
 			RST:         c.IO.RST,
+			QueueNum:    c.IO.QueueNum,
+			Table:       c.IO.Table,
 		})
 	}
 
