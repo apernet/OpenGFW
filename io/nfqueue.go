@@ -227,7 +227,7 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 		if n.ipt4 != nil {
 			err = n.setupIpt(n.local, n.rst, false)
 		} else {
-			err = n.setupNft(n.local, n.rst, false, n.queueNum)
+			err = n.setupNft(n.local, n.rst, false)
 		}
 		if err != nil {
 			return err
@@ -287,7 +287,7 @@ func (n *nfqueuePacketIO) Close() error {
 		if n.ipt4 != nil {
 			_ = n.setupIpt(n.local, n.rst, true)
 		} else {
-			_ = n.setupNft(n.local, n.rst, true, n.queueNum)
+			_ = n.setupNft(n.local, n.rst, true)
 		}
 		n.rSet = false
 	}
@@ -299,8 +299,8 @@ func (n *nfqueuePacketIO) SetCancelFunc(cancelFunc context.CancelFunc) error {
 	return nil
 }
 
-func (n *nfqueuePacketIO) setupNft(local, rst, remove bool, nfqueueNum int) error {
-	rules, err := generateNftRules(local, rst, nfqueueNum, n.table)
+func (n *nfqueuePacketIO) setupNft(local, rst, remove bool) error {
+	rules, err := generateNftRules(local, rst, n.queueNum, n.table)
 	if err != nil {
 		return err
 	}
