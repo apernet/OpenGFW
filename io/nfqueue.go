@@ -110,7 +110,7 @@ type nfqueuePacketIO struct {
 
 type NFQueuePacketIOConfig struct {
 	QueueSize   uint32
-	QueueNum    uint16
+	QueueNum    *uint16
 	Table       string
 	ReadBuffer  int
 	WriteBuffer int
@@ -122,8 +122,9 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	if config.QueueSize == 0 {
 		config.QueueSize = nfqueueDefaultQueueSize
 	}
-	if config.QueueNum == 0 {
-		config.QueueNum = nfqueueDefaultQueueNum
+	if config.QueueNum == nil {
+		queueNum := uint16(nfqueueDefaultQueueNum)
+		config.QueueNum = &queueNum
 	}
 	if config.Table == "" {
 		config.Table = nftDefaultTable
@@ -142,7 +143,7 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 		}
 	}
 	n, err := nfqueue.Open(&nfqueue.Config{
-		NfQueue:      config.QueueNum,
+		NfQueue:      *config.QueueNum,
 		MaxPacketLen: nfqueueMaxPacketLen,
 		MaxQueueLen:  config.QueueSize,
 		Copymode:     nfqueue.NfQnlCopyPacket,
@@ -169,7 +170,7 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 		n:        n,
 		local:    config.Local,
 		rst:      config.RST,
-		queueNum: int(config.QueueNum),
+		queueNum: int(*config.QueueNum),
 		table:    config.Table,
 		ipt4:     ipt4,
 		ipt6:     ipt6,

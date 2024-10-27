@@ -173,13 +173,13 @@ type cliConfig struct {
 }
 
 type cliConfigIO struct {
-	QueueSize   uint32 `mapstructure:"queueSize"`
-	QueueNum    uint16 `mapstructure:"queueNum"`
-	Table       string `mapstructure:"table"`
-	ReadBuffer  int    `mapstructure:"rcvBuf"`
-	WriteBuffer int    `mapstructure:"sndBuf"`
-	Local       bool   `mapstructure:"local"`
-	RST         bool   `mapstructure:"rst"`
+	QueueSize   uint32  `mapstructure:"queueSize"`
+	QueueNum    *uint16 `mapstructure:"queueNum"`
+	Table       string  `mapstructure:"table"`
+	ReadBuffer  int     `mapstructure:"rcvBuf"`
+	WriteBuffer int     `mapstructure:"sndBuf"`
+	Local       bool    `mapstructure:"local"`
+	RST         bool    `mapstructure:"rst"`
 }
 
 type cliConfigReplay struct {
