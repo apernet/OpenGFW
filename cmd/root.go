@@ -173,11 +173,16 @@ type cliConfig struct {
 }
 
 type cliConfigIO struct {
-	QueueSize   uint32 `mapstructure:"queueSize"`
-	ReadBuffer  int    `mapstructure:"rcvBuf"`
-	WriteBuffer int    `mapstructure:"sndBuf"`
-	Local       bool   `mapstructure:"local"`
-	RST         bool   `mapstructure:"rst"`
+	QueueSize      uint32  `mapstructure:"queueSize"`
+	QueueNum       *uint16 `mapstructure:"queueNum"`
+	Table          string  `mapstructure:"table"`
+	ConnMarkAccept uint32  `mapstructure:"connMarkAccept"`
+	ConnMarkDrop   uint32  `mapstructure:"connMarkDrop"`
+
+	ReadBuffer  int  `mapstructure:"rcvBuf"`
+	WriteBuffer int  `mapstructure:"sndBuf"`
+	Local       bool `mapstructure:"local"`
+	RST         bool `mapstructure:"rst"`
 }
 
 type cliConfigReplay struct {
@@ -216,7 +221,12 @@ func (c *cliConfig) fillIO(config *engine.Config) error {
 	} else {
 		// Setup IO for nfqueue
 		ioImpl, err = io.NewNFQueuePacketIO(io.NFQueuePacketIOConfig{
-			QueueSize:   c.IO.QueueSize,
+			QueueSize:      c.IO.QueueSize,
+			QueueNum:       c.IO.QueueNum,
+			Table:          c.IO.Table,
+			ConnMarkAccept: c.IO.ConnMarkAccept,
+			ConnMarkDrop:   c.IO.ConnMarkDrop,
+
 			ReadBuffer:  c.IO.ReadBuffer,
 			WriteBuffer: c.IO.WriteBuffer,
 			Local:       c.IO.Local,
