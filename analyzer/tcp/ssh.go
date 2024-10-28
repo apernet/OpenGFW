@@ -50,38 +50,48 @@ func newSSHStream(logger analyzer.Logger) *sshStream {
 	return s
 }
 
-func (s *sshStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, done bool) {
+func (s *sshStream) Feed(rev, start, end bool, skip int, data []byte) (u *analyzer.PropUpdate, _done bool) {
 	if skip != 0 {
 		return nil, true
 	}
 	if len(data) == 0 {
 		return nil, false
 	}
+
 	var update *analyzer.PropUpdate
 	var cancelled bool
+	var buf *utils.ByteBuffer
+	var updated, done *bool
+	var m *analyzer.PropMap
+	var lsm *utils.LinearStateMachine
+	var key string
+
 	if rev {
-		s.serverBuf.Append(data)
-		s.serverUpdated = false
-		cancelled, s.serverDone = s.serverLSM.Run()
-		if s.serverUpdated {
-			update = &analyzer.PropUpdate{
-				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"server": s.serverMap},
-			}
-			s.serverUpdated = false
-		}
+		buf = s.serverBuf
+		updated = &s.serverUpdated
+		lsm = s.serverLSM
+		m = &s.serverMap
+		done = &s.serverDone
+		key = "server"
 	} else {
-		s.clientBuf.Append(data)
-		s.clientUpdated = false
-		cancelled, s.clientDone = s.clientLSM.Run()
-		if s.clientUpdated {
-			update = &analyzer.PropUpdate{
-				Type: analyzer.PropUpdateMerge,
-				M:    analyzer.PropMap{"client": s.clientMap},
-			}
-			s.clientUpdated = false
-		}
+		buf = s.clientBuf
+		updated = &s.serverUpdated
+		lsm = s.clientLSM
+		m = &s.serverMap
+		done = &s.clientDone
+		key = "client"
 	}
+
+	buf.Append(data)
+	cancelled, *done = lsm.Run()
+	if *updated {
+		update = &analyzer.PropUpdate{
+			Type: analyzer.PropUpdateMerge,
+			M:    analyzer.PropMap{key: *m},
+		}
+		*updated = false
+	}
+
 	return update, cancelled || (s.clientDone && s.serverDone)
 }
 
