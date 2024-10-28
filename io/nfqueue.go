@@ -23,25 +23,24 @@ const (
 	nfqueueMaxPacketLen     = 0xFFFF
 	nfqueueDefaultQueueSize = 128
 
-	nfqueueConnMarkAccept = 1001
-	nfqueueConnMarkDrop   = 1002
+	nfqueueDefaultConnMarkAccept = 1001
 
 	nftFamily       = "inet"
 	nftDefaultTable = "opengfw"
 )
 
-func generateNftRules(local, rst bool, nfqueueNum int, nftTable string) (*nftTableSpec, error) {
-	if local && rst {
+func (n *nfqueuePacketIO) generateNftRules() (*nftTableSpec, error) {
+	if n.local && n.rst {
 		return nil, errors.New("tcp rst is not supported in local mode")
 	}
 	table := &nftTableSpec{
 		Family: nftFamily,
-		Table:  nftTable,
+		Table:  n.table,
 	}
-	table.Defines = append(table.Defines, fmt.Sprintf("define ACCEPT_CTMARK=%d", nfqueueConnMarkAccept))
-	table.Defines = append(table.Defines, fmt.Sprintf("define DROP_CTMARK=%d", nfqueueConnMarkDrop))
-	table.Defines = append(table.Defines, fmt.Sprintf("define QUEUE_NUM=%d", nfqueueNum))
-	if local {
+	table.Defines = append(table.Defines, fmt.Sprintf("define ACCEPT_CTMARK=%d", n.connMarkAccept))
+	table.Defines = append(table.Defines, fmt.Sprintf("define DROP_CTMARK=%d", n.connMarkDrop))
+	table.Defines = append(table.Defines, fmt.Sprintf("define QUEUE_NUM=%d", n.queueNum))
+	if n.local {
 		table.Chains = []nftChainSpec{
 			{Chain: "INPUT", Header: "type filter hook input priority filter; policy accept;"},
 			{Chain: "OUTPUT", Header: "type filter hook output priority filter; policy accept;"},
@@ -55,7 +54,7 @@ func generateNftRules(local, rst bool, nfqueueNum int, nftTable string) (*nftTab
 		c := &table.Chains[i]
 		c.Rules = append(c.Rules, "meta mark $ACCEPT_CTMARK ct mark set $ACCEPT_CTMARK") // Bypass protected connections
 		c.Rules = append(c.Rules, "ct mark $ACCEPT_CTMARK counter accept")
-		if rst {
+		if n.rst {
 			c.Rules = append(c.Rules, "ip protocol tcp ct mark $DROP_CTMARK counter reject with tcp reset")
 		}
 		c.Rules = append(c.Rules, "ct mark $DROP_CTMARK counter drop")
@@ -64,12 +63,12 @@ func generateNftRules(local, rst bool, nfqueueNum int, nftTable string) (*nftTab
 	return table, nil
 }
 
-func generateIptRules(local, rst bool, nfqueueNum int) ([]iptRule, error) {
-	if local && rst {
+func (n *nfqueuePacketIO) generateIptRules() ([]iptRule, error) {
+	if n.local && n.rst {
 		return nil, errors.New("tcp rst is not supported in local mode")
 	}
 	var chains []string
-	if local {
+	if n.local {
 		chains = []string{"INPUT", "OUTPUT"}
 	} else {
 		chains = []string{"FORWARD"}
@@ -77,13 +76,13 @@ func generateIptRules(local, rst bool, nfqueueNum int) ([]iptRule, error) {
 	rules := make([]iptRule, 0, 4*len(chains))
 	for _, chain := range chains {
 		// Bypass protected connections
-		rules = append(rules, iptRule{"filter", chain, []string{"-m", "mark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "CONNMARK", "--set-mark", strconv.Itoa(nfqueueConnMarkAccept)}})
-		rules = append(rules, iptRule{"filter", chain, []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkAccept), "-j", "ACCEPT"}})
-		if rst {
-			rules = append(rules, iptRule{"filter", chain, []string{"-p", "tcp", "-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "REJECT", "--reject-with", "tcp-reset"}})
+		rules = append(rules, iptRule{"filter", chain, []string{"-m", "mark", "--mark", strconv.Itoa(n.connMarkAccept), "-j", "CONNMARK", "--set-mark", strconv.Itoa(n.connMarkAccept)}})
+		rules = append(rules, iptRule{"filter", chain, []string{"-m", "connmark", "--mark", strconv.Itoa(n.connMarkAccept), "-j", "ACCEPT"}})
+		if n.rst {
+			rules = append(rules, iptRule{"filter", chain, []string{"-p", "tcp", "-m", "connmark", "--mark", strconv.Itoa(n.connMarkDrop), "-j", "REJECT", "--reject-with", "tcp-reset"}})
 		}
-		rules = append(rules, iptRule{"filter", chain, []string{"-m", "connmark", "--mark", strconv.Itoa(nfqueueConnMarkDrop), "-j", "DROP"}})
-		rules = append(rules, iptRule{"filter", chain, []string{"-j", "NFQUEUE", "--queue-num", strconv.Itoa(nfqueueNum), "--queue-bypass"}})
+		rules = append(rules, iptRule{"filter", chain, []string{"-m", "connmark", "--mark", strconv.Itoa(n.connMarkDrop), "-j", "DROP"}})
+		rules = append(rules, iptRule{"filter", chain, []string{"-j", "NFQUEUE", "--queue-num", strconv.Itoa(n.queueNum), "--queue-bypass"}})
 	}
 
 	return rules, nil
@@ -94,12 +93,14 @@ var _ PacketIO = (*nfqueuePacketIO)(nil)
 var errNotNFQueuePacket = errors.New("not an NFQueue packet")
 
 type nfqueuePacketIO struct {
-	n        *nfqueue.Nfqueue
-	local    bool
-	rst      bool
-	rSet     bool // whether the nftables/iptables rules have been set
-	queueNum int
-	table    string // nftable name
+	n              *nfqueue.Nfqueue
+	local          bool
+	rst            bool
+	rSet           bool // whether the nftables/iptables rules have been set
+	queueNum       int
+	table          string // nftable name
+	connMarkAccept int
+	connMarkDrop   int
 
 	// iptables not nil = use iptables instead of nftables
 	ipt4 *iptables.IPTables
@@ -109,9 +110,12 @@ type nfqueuePacketIO struct {
 }
 
 type NFQueuePacketIOConfig struct {
-	QueueSize   uint32
-	QueueNum    *uint16
-	Table       string
+	QueueSize      uint32
+	QueueNum       *uint16
+	Table          string
+	ConnMarkAccept uint32
+	ConnMarkDrop   uint32
+
 	ReadBuffer  int
 	WriteBuffer int
 	Local       bool
@@ -128,6 +132,19 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 	}
 	if config.Table == "" {
 		config.Table = nftDefaultTable
+	}
+	if config.ConnMarkAccept == 0 {
+		config.ConnMarkAccept = nfqueueDefaultConnMarkAccept
+	}
+	if config.ConnMarkDrop == 0 {
+		config.ConnMarkDrop = config.ConnMarkAccept + 1
+		if config.ConnMarkDrop == 0 {
+			// Overflow
+			config.ConnMarkDrop = 1
+		}
+	}
+	if config.ConnMarkAccept == config.ConnMarkDrop {
+		return nil, errors.New("connMarkAccept and connMarkDrop cannot be the same")
 	}
 	var ipt4, ipt6 *iptables.IPTables
 	var err error
@@ -167,18 +184,20 @@ func NewNFQueuePacketIO(config NFQueuePacketIOConfig) (PacketIO, error) {
 		}
 	}
 	return &nfqueuePacketIO{
-		n:        n,
-		local:    config.Local,
-		rst:      config.RST,
-		queueNum: int(*config.QueueNum),
-		table:    config.Table,
-		ipt4:     ipt4,
-		ipt6:     ipt6,
+		n:              n,
+		local:          config.Local,
+		rst:            config.RST,
+		queueNum:       int(*config.QueueNum),
+		table:          config.Table,
+		connMarkAccept: int(config.ConnMarkAccept),
+		connMarkDrop:   int(config.ConnMarkDrop),
+		ipt4:           ipt4,
+		ipt6:           ipt6,
 		protectedDialer: &net.Dialer{
 			Control: func(network, address string, c syscall.RawConn) error {
 				var err error
 				cErr := c.Control(func(fd uintptr) {
-					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, nfqueueConnMarkAccept)
+					err = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, int(config.ConnMarkAccept))
 				})
 				if cErr != nil {
 					return cErr
@@ -225,9 +244,9 @@ func (n *nfqueuePacketIO) Register(ctx context.Context, cb PacketCallback) error
 	}
 	if !n.rSet {
 		if n.ipt4 != nil {
-			err = n.setupIpt(n.local, n.rst, false)
+			err = n.setupIpt(false)
 		} else {
-			err = n.setupNft(n.local, n.rst, false)
+			err = n.setupNft(false)
 		}
 		if err != nil {
 			return err
@@ -267,11 +286,11 @@ func (n *nfqueuePacketIO) SetVerdict(p Packet, v Verdict, newPacket []byte) erro
 	case VerdictAcceptModify:
 		return n.n.SetVerdictModPacket(nP.id, nfqueue.NfAccept, newPacket)
 	case VerdictAcceptStream:
-		return n.n.SetVerdictWithConnMark(nP.id, nfqueue.NfAccept, nfqueueConnMarkAccept)
+		return n.n.SetVerdictWithConnMark(nP.id, nfqueue.NfAccept, n.connMarkAccept)
 	case VerdictDrop:
 		return n.n.SetVerdict(nP.id, nfqueue.NfDrop)
 	case VerdictDropStream:
-		return n.n.SetVerdictWithConnMark(nP.id, nfqueue.NfDrop, nfqueueConnMarkDrop)
+		return n.n.SetVerdictWithConnMark(nP.id, nfqueue.NfDrop, n.connMarkDrop)
 	default:
 		// Invalid verdict, ignore for now
 		return nil
@@ -285,9 +304,9 @@ func (n *nfqueuePacketIO) ProtectedDialContext(ctx context.Context, network, add
 func (n *nfqueuePacketIO) Close() error {
 	if n.rSet {
 		if n.ipt4 != nil {
-			_ = n.setupIpt(n.local, n.rst, true)
+			_ = n.setupIpt(true)
 		} else {
-			_ = n.setupNft(n.local, n.rst, true)
+			_ = n.setupNft(true)
 		}
 		n.rSet = false
 	}
@@ -299,8 +318,8 @@ func (n *nfqueuePacketIO) SetCancelFunc(cancelFunc context.CancelFunc) error {
 	return nil
 }
 
-func (n *nfqueuePacketIO) setupNft(local, rst, remove bool) error {
-	rules, err := generateNftRules(local, rst, n.queueNum, n.table)
+func (n *nfqueuePacketIO) setupNft(remove bool) error {
+	rules, err := n.generateNftRules()
 	if err != nil {
 		return err
 	}
@@ -318,8 +337,8 @@ func (n *nfqueuePacketIO) setupNft(local, rst, remove bool) error {
 	return nil
 }
 
-func (n *nfqueuePacketIO) setupIpt(local, rst, remove bool) error {
-	rules, err := generateIptRules(local, rst, n.queueNum)
+func (n *nfqueuePacketIO) setupIpt(remove bool) error {
+	rules, err := n.generateIptRules()
 	if err != nil {
 		return err
 	}
